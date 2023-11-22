@@ -1,0 +1,56 @@
+
+python("import sys;sys.dont_write_bytecode = True");
+
+string $name = "AnimExport";
+
+string $path =`ReadPath`;
+string $pathToScriptFiles = $path + $name + " Files/";
+string $pathToIcon = $pathToScriptFiles + "AnimExport" + ".png";
+
+string $currentShelf = `CurrentShelf`;
+
+
+string $importFiles = "import UI;reload(UI);import Export;reload(Export);";
+
+string $command = "import sys;sys.path.append('" + $pathToScriptFiles + "');" + $importFiles + "UI.WindowCreate()";
+
+
+
+///*
+shelfButton
+	-command $command
+	-annotation $name
+	-label $name
+	-style "iconOnly"
+	-image $pathToIcon
+	-sourceType "python"
+	-parent $currentShelf
+;
+//*/
+
+python($command);
+
+global proc string ReadPath()
+{
+	string $_melFilePath=`whatIs JustProcForReadPath`;
+	string $melFilePath=`substring $_melFilePath 25 9999`;
+	int $numPath=size($melFilePath);
+	string $folders[];
+	int $numFolders =`tokenize $melFilePath "/" $folders`;
+	int $numLast = size($folders[$numFolders-1]);
+	return `substring $melFilePath 1 ($numPath - $numLast)`;
+}
+
+
+global proc JustProcForReadPath()
+{
+
+}
+
+///*
+global proc string CurrentShelf()
+{
+	global string $gShelfTopLevel;
+	return `tabLayout -q -selectTab $gShelfTopLevel`;
+}
+//*/
