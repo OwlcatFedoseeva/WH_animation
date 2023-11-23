@@ -95,6 +95,7 @@ def fbxExp():
         cmds.loadPlugin("fbxmaya")  # Load the fbxmaya plugin
         cmds.select('ParentForExportDelete', hierarchy=True)
         nameExport = dir + '/' + newFileName + '.fbx'
+        mel.eval('FBXLoadExportPresetFile -f "{}"'.format(PRESET))
         mel.eval('FBXExport -s -f "{}" -force -options'.format(nameExport))
         print("FBX Exported:", nameExport)
     else:
