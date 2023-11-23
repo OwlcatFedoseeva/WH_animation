@@ -3,13 +3,16 @@ import os
 import maya.mel as mel
 from PySide2 import QtCore, QtGui, QtWidgets
 
-# Path to the FBX export preset file
-PRESET = "C:/Users/Valeriya/Documents/maya/scripts/CHanimExport/UMA_Male_Rig_AnimationExport.fbxexportpreset"
 
 # Get Maya user directory and create AnimationExport directory
 USERAPPDIR = cmds.internalVar(userAppDir=True)
 newDIRECTORY = os.path.join(USERAPPDIR, 'AnimationExport')
 files = []
+
+# Path to the FBX export preset file
+
+#PRESET = "C:/Users/Valeriya/Documents/maya/scripts/CHanimExport/UMA_Male_Rig_AnimationExport.fbxexportpreset"
+PRESET = USERAPPDIR + 'scripts/AnimJntClnup/UMA_Male_Rig_AnimationExport.fbxexportpreset'
 
 
 class BatchCleanupUI(QtWidgets.QDialog):
