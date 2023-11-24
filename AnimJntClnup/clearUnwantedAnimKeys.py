@@ -89,15 +89,15 @@ class BatchCleanupUI(QtWidgets.QDialog):
     def jnt_clean_up(self):
         # Clean up specified joints by cutting animation keys
         jnt_list = [
-            'L_front_weapon_slot_05_ADJ', 'L_front_weapon_slot_05', 'L_front_w____scale_05', 'L_front_weapon_slot_04',
-            'L_front_w____scale_04', 'C_front_weapon_slot_03_ADJ', 'C_front_weapon_slot_03', 'C_front_w____scale_03',
-            'R_front_weapon_slot_02_ADJ', 'R_front_weapon_slot_02', 'R_front_w____scale_02', 'R_front_weapon_slot_01_ADJ',
-            'R_front_weapon_slot_01', 'R_front_w____scale_01', 'R_back_weapon_slot_06_ADJ', 'R_back_weapon_slot_06',
-            'R_back_weapon_slot_06_ADJ', 'R_back_weapon_slot_09_ADJ', 'R_back_weapon_slot_09', 'R_back_w_____slot_09',
-            'C_back_weapon_slot_08_ADJ', 'C_back_weapon_slot_08', 'C_back_w_____slot_08', 'L_back_weapon_slot_07_ADJ',
-            'L_back_weapon_slot_07', 'L_back_w_____slot_07', 'L_back_weapon_slot_10_ADJ', 'L_back_weapon_slot_10',
-            'L_back_w_____slot_10', 'C_back_weapon_slot_11_ADJ', 'C_back_weapon_slot_11', 'C_back_w_____slot_11'
-        ]
+            'R_front_w____scale_01', 'R_front_weapon_slot_01', 'R_front_weapon_slot_01_ADJ', 'L_front_w____scale_05', 
+            'L_front_weapon_slot_05', 'L_front_weapon_slot_05_ADJ', 'L_front_w____scale_04', 'L_front_weapon_slot_04', 
+            'L_front_weapon_slot_04_ADJ', 'R_front_w____scale_02', 'R_front_weapon_slot_02', 'R_front_weapon_slot_02_ADJ', 
+            'C_back_w_____slot_11', 'C_back_weapon_slot_11', 'C_back_weapon_slot_11_ADJ', 'L_back_w_____slot_10', 
+            'L_back_weapon_slot_10', 'L_back_weapon_slot_10_ADJ', 'L_back_w_____slot_07', 'L_back_weapon_slot_07', 
+            'L_back_weapon_slot_07_ADJ', 'C_back_w_____slot_08', 'C_back_weapon_slot_08', 'C_back_weapon_slot_08_ADJ', 
+            'R_back_w_____slot_09', 'R_back_weapon_slot_09', 'R_back_weapon_slot_09_ADJ', 'R_back_w_____slot_06', 'R_back_weapon_slot_06', 'R_back_weapon_slot_06_ADJ'
+            ]
+
 
         for jnt in jnt_list:
             if cmds.objExists(jnt):
