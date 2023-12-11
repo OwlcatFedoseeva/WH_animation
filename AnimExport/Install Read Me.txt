@@ -1,7 +1,0 @@
-Place the "AnimExport" folder where you want it to be.
-
-For example: "C:/Users/YOUR_USER_NAME/Documents/maya/2019/scripts/AnimExport"
-
-Then drag and drop the "Install AnimExport.mel" file (from placed folder) into Maya viewport.
-
-Script will appear at the current shelf.
