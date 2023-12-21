@@ -35,5 +35,7 @@
     "L_eye", 
     "L_eye_end", 
     "Jaw_Scale", 
-    "Pelvis"
+    "Pelvis",
+    "R_WeaponBone",
+    "L_WeaponBone"
 ]
