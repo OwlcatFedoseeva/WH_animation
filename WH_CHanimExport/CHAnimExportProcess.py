@@ -3,6 +3,9 @@ from PySide2 import QtCore, QtGui, QtWidgets
 import os
 import json
 from pymel.core import mel
+import logging
+
+
 
 USERAPPDIR = cmds.internalVar(userAppDir=True)
 PRESET_DIRECTORY = os.path.join(USERAPPDIR, 'scripts', 'WH_CHanimExport')
