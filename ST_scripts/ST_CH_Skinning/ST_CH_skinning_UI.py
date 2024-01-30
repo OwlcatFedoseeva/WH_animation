@@ -20,7 +20,7 @@ class BodyPartSkinnerUI(QtWidgets.QWidget):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("BodyPart skinner v 1.2")
+        self.setWindowTitle("BodyPart skinner v 2.0")
         self.setObjectName("CHBodyPartSkinnerID")
         self.setGeometry(300, 300, 250, 400)
 
@@ -110,6 +110,8 @@ class BodyPartSkinnerUI(QtWidgets.QWidget):
         self.main_layout.addLayout(self.close_button_layout)
 
     def btn_build_scene_clicked(self):
+        # Create a new scene
+        cmds.file(new=True, force=True)
         file_name = self.file_name_field.text()
         if file_name:
             if "_HM_" in file_name and "_M_" in file_name:
@@ -125,7 +127,16 @@ class BodyPartSkinnerUI(QtWidgets.QWidget):
                 cmds.file(self.selected_file, i=True)
 
             elif "_HM_" in file_name and "_F_" in file_name:
-                print("Importing Base Human Female Skeleton")
+                base_body = os.path.join(BASE_SKELETON_DIRECTORY , 'Base_Female_Skeleton.ma')
+                        # Check if the base skeleton file exists
+                if not os.path.exists(base_body):
+                    cmds.error("Base skeleton file not found: {}".format(base_body))
+                    return
+
+                else:
+                    cmds.file(base_body, i=True)
+
+                cmds.file(self.selected_file, i=True)
 
             elif "_EL_" in file_name and "_M_" in file_name:
                 print("Importing Base Eldar Male Skeleton")
@@ -270,27 +281,46 @@ class BodyPartSkinnerUI(QtWidgets.QWidget):
         if not hasattr(self, 'selected_file') or not self.selected_file:
             print("No file selected for export.")
             return
-
-        # Get the directory of the selected file
-        selected_dir = os.path.dirname(self.selected_file)
-
-        # Create the export directory if it doesn't exist
-        export_dir = os.path.abspath(os.path.join(selected_dir, '..', 'Skinned_FBX'))
-        print (export_dir)
-
+        pelvis_influence = 'Pelvis'
+        filePathName = cmds.file(query=True, sceneName=True)
+        filePath = os.path.dirname(filePathName)
+        parentFolder = os.path.abspath(os.path.join(filePath, os.pardir))
+        export_dir = os.path.join(parentFolder, 'Skinned_FBX')
+        file_name = self.file_name_field.text()
         if not os.path.exists(export_dir):
             os.makedirs(export_dir)
+
+        if file_name:
+            if "_M_" in file_name:
+                sex_dir = os.path.join(export_dir, 'Skinned_Male_FBX')
+                if not os.path.exists(sex_dir):
+                    os.makedirs(sex_dir)
+
+            elif "_F_" in file_name:
+                sex_dir = os.path.join(export_dir, 'Skinned_Female_FBX')
+                if not os.path.exists(sex_dir):
+                    os.makedirs(sex_dir)
+
+        if not pelvis_influence:
+                
+                # Add "Pelvis" joint to the skinCluster influence
+                for selected_object in self.selected_objects:
+                    cmds.skinCluster(self.skin_cluster, edit=True, ai=pelvis_joint)
+
 
         for selected_object in self.selected_objects:
             cmds.select(selected_object)
             name = selected_object.split('|')[-1]
-            new_file_path_name = os.path.join(export_dir, '{}.fbx'.format(name))
+
+            new_file_path_name = os.path.join(sex_dir, '{}.fbx'.format(name))
+            new_file_path_name = new_file_path_name.replace("\\", "/")  # Replace backslashes with forward slashes
+            print("Exporting to:", new_file_path_name)
+
             mel.eval('file -force -options "v=0;" -typ "FBX export" -pr -es "{}";'.format(new_file_path_name))
             print("Export is complete:", new_file_path_name)
-
+                
         
         return
-
 
 
     def save_maya_scene(self):
@@ -315,7 +345,7 @@ class BodyPartSkinnerUI(QtWidgets.QWidget):
         print(rig_file_name)
 
         # Print the full path before the cmds.file command
-        full_path = os.path.join(rig_dir, '%s_RIG.ma' % rig_file_name)
+        full_path = os.path.join(rig_dir, '%s_skeleton.ma' % rig_file_name)
         print("Full Path:", full_path)
 
         cmds.file(rename=full_path)

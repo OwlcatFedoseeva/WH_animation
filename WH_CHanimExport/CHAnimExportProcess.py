@@ -5,7 +5,23 @@ import json
 from pymel.core import mel
 import logging
 
+log_dir = os.path.dirname(__file__)
+log_file = os.path.join(log_dir, "logs", "exporter.log")
 
+
+logger = logging.getLogger("ExportLogs")
+logger.setLevel(logging.DEBUG)
+
+#clean handler from old data
+for hnd in logger.handlers:
+    print("Removing {} handler".format(hnd))
+    logger.removeHandler(hnd)
+
+file_handler = logging.FileHandler(log_file, mode=w)
+file_handler_format = logging.Formatter('[%(module)s.%(funcName)s.%(lineno)d]%(levelname)s:%(message)s')
+file_handler.setFormatter(file_handler_format)
+
+logger.addHandler(file_handler)
 
 USERAPPDIR = cmds.internalVar(userAppDir=True)
 PRESET_DIRECTORY = os.path.join(USERAPPDIR, 'scripts', 'WH_CHanimExport')
@@ -24,7 +40,7 @@ class ch_anim_export(QtWidgets.QDialog):
         self.toDel = None
 
     def setup_ui(self):
-        self.setWindowTitle("Character Animation Export")
+        self.setWindowTitle("Character Animation Export 2.0")
         self.setObjectName("CHAnimExportID")
         self.setMinimumSize(400, 200)
         self.setMaximumSize(800, 40)
@@ -104,7 +120,6 @@ class ch_anim_export(QtWidgets.QDialog):
         fileName = filePathName.split('/')[-1]
         newFileName = fileName.split('.')[0]
 
-
     def btn_set_path_clicked(self):
         # Open file dialog to set the animation folder path
         folder_path = cmds.fileDialog2(dialogStyle=2, fileMode=3)
@@ -120,7 +135,6 @@ class ch_anim_export(QtWidgets.QDialog):
         self.combobox_race.setCurrentIndex(0)  # Set the default selection
         self.main_layout.addWidget(self.combobox_race)
 
-
     def export_char_anim_btn(self):
         '''
         In this function we create button that will bake animation on Human | Eldar| SpaceMarine characters.
@@ -130,7 +144,6 @@ class ch_anim_export(QtWidgets.QDialog):
         self.btn_bake_ch_anim.clicked.connect(self.runProcess)
         self.btn_bake_ch_anim.setToolTip("Click to export character animation")
         self.main_layout.addWidget(self.btn_bake_ch_anim)
-
 
     def export_creature_anim_btn(self):
         '''
@@ -169,7 +182,6 @@ class ch_anim_export(QtWidgets.QDialog):
                 if cmds.namespace(exists=namespace) is True:
                     cmds.namespace(removeNamespace=namespace, mergeNamespaceWithRoot=True)
         print("Namespaces removed successfully!")
-
 
     def cleanUp(self):
         '''
@@ -253,7 +265,6 @@ class ch_anim_export(QtWidgets.QDialog):
         nameExport = folder_path + '/' + newFileName + '.fbx'
         mel.FBXExport(s=True, f=nameExport, force=True, options=True)
         print("FBX file exported to: {}".format(nameExport))
-
 
     def runProcess(self):
         '''
@@ -339,6 +350,13 @@ class ch_anim_export(QtWidgets.QDialog):
 
         self.cleanUp()
         self.ch_fbx_export()
+
+        
+        logger.debug("Error has occured")
+        file_handler.close()
+        logger.removeHandler(file_handler)
+
+
     
     # CREATURE EXPORT part of the scrript
 
@@ -419,7 +437,6 @@ class ch_anim_export(QtWidgets.QDialog):
         self.bakeProcess()
         self.creature_anim_export()
         return
-
 
 def clean_ui():
     if cmds.window("AnimationTransferID", exists=True):
