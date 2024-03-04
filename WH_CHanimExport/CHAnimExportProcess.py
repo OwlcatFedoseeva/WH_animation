@@ -3,25 +3,8 @@ from PySide2 import QtCore, QtGui, QtWidgets
 import os
 import json
 from pymel.core import mel
-import logging
-
-log_dir = os.path.dirname(__file__)
-log_file = os.path.join(log_dir, "logs", "exporter.log")
 
 
-logger = logging.getLogger("ExportLogs")
-logger.setLevel(logging.DEBUG)
-
-#clean handler from old data
-for hnd in logger.handlers:
-    print("Removing {} handler".format(hnd))
-    logger.removeHandler(hnd)
-
-file_handler = logging.FileHandler(log_file, mode=w)
-file_handler_format = logging.Formatter('[%(module)s.%(funcName)s.%(lineno)d]%(levelname)s:%(message)s')
-file_handler.setFormatter(file_handler_format)
-
-logger.addHandler(file_handler)
 
 USERAPPDIR = cmds.internalVar(userAppDir=True)
 PRESET_DIRECTORY = os.path.join(USERAPPDIR, 'scripts', 'WH_CHanimExport')
@@ -29,18 +12,18 @@ presetPathName = PRESET_DIRECTORY + "/UMA_Male_Rig_AnimationExport.fbxexportpres
 newFileName = None
 filePathName = cmds.file(query=True, sceneName=True)
 DIRECTORY = os.path.dirname(filePathName)
-
+DummyFolder = DIRECTORY + '/' +'AnimExport'
 
 class ch_anim_export(QtWidgets.QDialog):
     
     def __init__(self):
         super(ch_anim_export, self).__init__()
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        #self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.setup_ui()
         self.toDel = None
 
     def setup_ui(self):
-        self.setWindowTitle("Character Animation Export 2.0")
+        self.setWindowTitle("Character Animation Export 3.2")
         self.setObjectName("CHAnimExportID")
         self.setMinimumSize(400, 200)
         self.setMaximumSize(800, 40)
@@ -67,8 +50,16 @@ class ch_anim_export(QtWidgets.QDialog):
         divider_line.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.main_layout.addWidget(divider_line)
 
+
         self.btn_layout_A = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.btn_layout_A)
+
+        self.rbtnA = QtWidgets.QRadioButton('Save to Default Folder')
+        self.rbtnA.setChecked(True)
+        self.rbtnB = QtWidgets.QRadioButton('Save to Specified Folder')
+
+        self.btn_layout_A.addWidget(self.rbtnA)
+        self.btn_layout_A.addWidget(self.rbtnB)
 
         # Create a horizontal layout for the folder path line edit and Set Path button
         self.path_layout = QtWidgets.QHBoxLayout()
@@ -114,6 +105,19 @@ class ch_anim_export(QtWidgets.QDialog):
 
         self.export_creature_anim_btn()
 
+    def createDirectory(self, directory=DIRECTORY):
+        """
+        Creates a given Directory if it doesn't exist
+        Args:
+            directory(str):The directory to create
+        Returns:
+            str: The path of the created directory
+        """
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        return directory
+
+
     def update_file_name(self):
         global newFileName
         filePathName = cmds.file(query=True, sceneName=True)
@@ -122,10 +126,14 @@ class ch_anim_export(QtWidgets.QDialog):
 
     def btn_set_path_clicked(self):
         # Open file dialog to set the animation folder path
-        folder_path = cmds.fileDialog2(dialogStyle=2, fileMode=3)
-        if folder_path:
-            self.save_name_field.setText(folder_path[0])
+        self.folder_path = cmds.fileDialog2(dialogStyle=2, fileMode=3)
+        if self.folder_path is not None:  # Check if self.folder_path is not None
+            self.save_name_field.setText(self.folder_path[0])
+            print("Folder path set to:", self.folder_path[0])
+        else:
+            print("No folder selected.")
         return None
+
 
     def create_comboboxA(self):
         self.combobox_race = QtWidgets.QComboBox()
@@ -159,6 +167,7 @@ class ch_anim_export(QtWidgets.QDialog):
         '''
         This function imports all referenced instances into the scene.
         '''
+        
         all_ref_paths = cmds.file(q=True, reference=True) or []
         for ref_path in all_ref_paths:
             if cmds.referenceQuery(ref_path, isLoaded=True):
@@ -169,6 +178,8 @@ class ch_anim_export(QtWidgets.QDialog):
                     for new_ref_path in new_ref_paths:
                         if new_ref_path not in all_ref_paths:
                             all_ref_paths.append(new_ref_path)
+
+        print('Imported from reference all elements.')
 
     def remove_namespaces(self):
         '''
@@ -209,30 +220,86 @@ class ch_anim_export(QtWidgets.QDialog):
         else:
             pass
 
+        selected_option = self.combobox_race.currentText()
+
+        if selected_option == "Human":
+            print("Clean up for for Humans and Eldar")
+            list = ['Spine_1', 'Spine_2', 'Spine_3', 'Neck', 'Head_ADJ', 'Head_Helmet_ADJ',
+            'Skull_Scale', 'Face_Scale', 'L_eyebrow', 'R_eyebrow', 'R_eyelish_top', 'R_eyelish_top_end',
+            'L_eyelish_top', 'L_eyelish_top_end', 'R_eyelish_bottom', 'R_eyelish_bottom_end', 'L_eyelish_bottom',
+            'L_eyelish_bottom_end', 'R_eye', 'R_eye_end', 'L_eye', 'L_eye_end', 'Jaw_Scale', 'Neck_ADJ', 'L_Clavicle',
+            'L_Up_arm', 'L_ForeArm', 'L_Hand', 'L_Toe_1_01', 'L_Toe_1_02', 'L_Toe_1_02_ADJ', 'L_Toe_1_01_ADJ',
+            'L_Toe_2_01', 'L_Toe_2_02', 'L_Toe_2_02_ADJ', 'L_Toe_2_01_ADJ', 'L_Toe_3_01', 'L_Toe_3_02',
+            'L_Toe_3_02_ADJ', 'L_Toe_3_01_ADJ', 'L_Hand_ADJ', 'L_ForeArm_ADJ', 'L_ForeArm_Twist_ADJ',
+            'L_Up_Arm_Muscl_ADJ', 'L_Up_arm_ADJ', 'L_Clavicle_ADJ', 'L_Neck_Muscl', 'L_Neck_Muscl_ADJ', 'R_Neck_Muscl',
+            'R_Neck_Muscl_ADJ', 'Spine_3_ADJ', 'L_back_w_____slot_10', 'L_back_weapon_slot_10',
+            'L_back_weapon_slot_10_ADJ', 'L_back_w_____slot_07', 'L_back_weapon_slot_07', 'L_back_weapon_slot_07_ADJ',
+            'C_back_w_____slot_08', 'C_back_weapon_slot_08', 'C_back_weapon_slot_08_ADJ', 'R_back_w_____slot_09',
+            'R_back_weapon_slot_09', 'R_back_weapon_slot_09_ADJ', 'R_back_w_____slot_06', 'R_back_weapon_slot_06',
+            'R_back_weapon_slot_06_ADJ', 'R_Clavicle', 'R_Up_arm', 'R_ForeArm', 'R_Hand', 'R_Toe_1_01', 'R_Toe_1_02',
+            'R_Toe_1_02_ADJ', 'R_Toe_1_01_ADJ', 'R_Toe_2_01', 'R_Toe_2_02', 'R_Toe_2_02_ADJ', 'R_Toe_2_01_ADJ',
+            'R_Toe_3_01', 'R_Toe_3_02', 'R_Toe_3_02_ADJ', 'R_Toe_3_01_ADJ', 'R_Hand_ADJ',
+            'R_ForeArm_ADJ', 'R_ForeArm_Twist_ADJ', 'R_Up_Arm_Muscl_ADJ', 'R_Up_arm_ADJ', 'R_Clavicle_ADJ',
+            'Spine_2_ADJ', 'C_back_w_____slot_11', 'C_back_weapon_slot_11', 'C_back_weapon_slot_11_ADJ', 'Stomach',
+            'Stomach_ADJ', 'Spine_1_ADJ'] 
+            #['L_Up_leg', 'R_Pre_Up_Leg']
+
+            for i in list:
+                cmds.select(i)
+                cmds.cutKey(at='translate')
+
+        elif selected_option == "SpaceMarine":
+            print("Clean up for Spacemarine")
+
+            list = ['Spine_1', 'Spine_2', 'Spine_3', 'Neck', 'Head_ADJ', 'Head_Helmet_ADJ',
+            'Skull_Scale', 'Face_Scale', 'L_eyebrow', 'R_eyebrow', 'R_eyelish_top', 'R_eyelish_top_end',
+            'L_eyelish_top', 'L_eyelish_top_end', 'R_eyelish_bottom', 'R_eyelish_bottom_end', 'L_eyelish_bottom',
+            'L_eyelish_bottom_end', 'R_eye', 'R_eye_end', 'L_eye', 'L_eye_end', 'Jaw_Scale', 'Neck_ADJ', 'L_Clavicle',
+            'L_Up_arm', 'L_ForeArm', 'L_Hand', 'L_Toe_1_01', 'L_Toe_1_02', 'L_Toe_1_02_ADJ', 'L_Toe_1_01_ADJ',
+            'L_Toe_2_01', 'L_Toe_2_02', 'L_Toe_2_02_ADJ', 'L_Toe_2_01_ADJ', 'L_Toe_3_01', 'L_Toe_3_02',
+            'L_Toe_3_02_ADJ', 'L_Toe_3_01_ADJ', 'L_Hand_ADJ', 'L_ForeArm_ADJ', 'L_ForeArm_Twist_ADJ',
+            'L_Up_Arm_Muscl_ADJ', 'L_Up_arm_ADJ', 'L_Clavicle_ADJ', 'L_Neck_Muscl', 'L_Neck_Muscl_ADJ', 'R_Neck_Muscl',
+            'R_Neck_Muscl_ADJ', 'Spine_3_ADJ', 'L_back_w_____slot_10', 'L_back_weapon_slot_10',
+            'L_back_weapon_slot_10_ADJ', 'L_back_w_____slot_07', 'L_back_weapon_slot_07', 'L_back_weapon_slot_07_ADJ',
+            'C_back_w_____slot_08', 'C_back_weapon_slot_08', 'C_back_weapon_slot_08_ADJ', 'R_back_w_____slot_09',
+            'R_back_weapon_slot_09', 'R_back_weapon_slot_09_ADJ', 'R_back_w_____slot_06', 'R_back_weapon_slot_06',
+            'R_back_weapon_slot_06_ADJ', 'R_Clavicle', 'R_Up_arm', 'R_ForeArm', 'R_Hand', 'R_Toe_1_01', 'R_Toe_1_02',
+            'R_Toe_1_02_ADJ', 'R_Toe_1_01_ADJ', 'R_Toe_2_01', 'R_Toe_2_02', 'R_Toe_2_02_ADJ', 'R_Toe_2_01_ADJ',
+            'R_Toe_3_01', 'R_Toe_3_02', 'R_Toe_3_02_ADJ', 'R_Toe_3_01_ADJ', 'R_Hand_ADJ',
+            'R_ForeArm_ADJ', 'R_ForeArm_Twist_ADJ', 'R_Up_Arm_Muscl_ADJ', 'R_Up_arm_ADJ', 'R_Clavicle_ADJ',
+            'Spine_2_ADJ', 'C_back_w_____slot_11', 'C_back_weapon_slot_11', 'C_back_weapon_slot_11_ADJ', 'Stomach',
+            'Stomach_ADJ', 'Spine_1_ADJ']
+
+            for i in list:
+                cmds.select(i)
+                cmds.cutKey(at='translate')
+
+        print("Skeleton clean up is complete")
+
     def ch_fbx_export(self):
         '''
         This function for export of Human| Eldar| SpaceMarine characters as FBX file into a designated location in UI.
         '''
+
         # Unload the fbxmaya plugin before reloading it
         cmds.unloadPlugin("fbxmaya", force=True)
         cmds.loadPlugin("fbxmaya")
+
 
         # Load the export preset file
         cmds.loadPlugin("fbxmaya")
         mel.FBXLoadExportPresetFile(f=presetPathName)
 
+    
         # Get the folder path from the save_name_field
-        folder_path = self.save_name_field.text()
+        self.folder_path = self.save_name_field.text()
 
-        if not folder_path:
-            cmds.warning("Please select an animation folder.")
-            return
         
         # Call update_file_name to ensure newFileName is updated
         self.update_file_name()
 
         sel = cmds.listRelatives('Pelvis', c=True, ad=True)
- 
+
         for obj in sel:
             shortName = obj.split("|")[-1]
 
@@ -262,18 +329,48 @@ class ch_anim_export(QtWidgets.QDialog):
         cmds.select('ParentForExportDelete')
         cmds.listRelatives('ParentForExportDelete', c=True, ad=True)
 
-        nameExport = folder_path + '/' + newFileName + '.fbx'
-        mel.FBXExport(s=True, f=nameExport, force=True, options=True)
-        print("FBX file exported to: {}".format(nameExport))
+    
+        # Get the text entered in the save_name_field
+        self.folder_path = self.save_name_field.text()
+
+        # Check if the self.folder_path is empty
+        if self.rbtnA.isChecked():
+            print("Folder path is not set. Creating a default folder.")
+            self.folder_path = self.createDirectory(DummyFolder)
+            nameExport = self.folder_path + '/' + newFileName + '.fbx'
+            mel.FBXExport(s=True, f=nameExport, force=True, options=True)
+            print("FBX file exported to: {}".format(nameExport))
+            return
+
+        
+        elif self.rbtnB.isChecked():
+            nameExport = self.folder_path + '/' + newFileName + '.fbx'
+            mel.FBXExport(s=True, f=nameExport, force=True, options=True)
+            print("FBX file exported to: {}".format(nameExport))
+            return
+
+    def showExportLocationDialog(self):
+        '''
+        Shows a dialog box with the location of the exported FBX file.
+        '''
+        exportLocation = os.path.join(self.folder_path, newFileName + '.fbx')
+        
+        messageBox = QtWidgets.QMessageBox()
+        messageBox.setWindowTitle("Export Complete")
+        messageBox.setText("The FBX file has been successfully exported to:\n{}".format(exportLocation))
+        messageBox.setIcon(QtWidgets.QMessageBox.Information)
+        messageBox.exec_()
+
 
     def runProcess(self):
         '''
         This function runs above functions and initiates the export process for Human| Eldar| SpaceMarine characters.
         '''
         self.imprtRef()
+        
         self.remove_namespaces()
 
-
+        print('Starting Baking animation to joints process.')
         selected_option = self.combobox_race.currentText()
 
         if selected_option == "Human":
@@ -298,21 +395,19 @@ class ch_anim_export(QtWidgets.QDialog):
         cmds.select('Pelvis', hi=True)
 
         # Get the selected objects
-        selected_objects = cmds.ls(selection=True)
 
-        for obj in selected_objects:
-            if cmds.nodeType(obj) == 'joint':
-                jnts.append(obj)
-            elif cmds.nodeType(obj) in ['parentConstraint', 'orientConstraint']:
-                cons.append(obj)
+        cmds.select('Pelvis', hi=True)
+        allSelected = cmds.ls(sl=True)
 
 
-        if jnts:
-            cmds.bakeResults(jnts, simulation=True, t=(cmds.playbackOptions(q=True, minTime=True), cmds.playbackOptions(q=True, maxTime=True)), sampleBy=1, at=["rotate"])
+        startTime = cmds.playbackOptions(query=True, minTime=True)
+        endTime = cmds.playbackOptions(query=True, maxTime=True)
 
-        if bake_transl_jnts:
-            cmds.bakeResults(bake_transl_jnts, simulation=True, t=(cmds.playbackOptions(q=True, minTime=True), cmds.playbackOptions(q=True, maxTime=True)), sampleBy=1, at=["translate"])
+        cmds.bakeResults(allSelected, simulation=True, t=(startTime, endTime), at='translate')
+        cmds.bakeResults(allSelected, simulation=True, t=(startTime, endTime), at='rotate')
 
+        print('Baking animation to joints is complete.')
+        print('Starting CleanUp process.')
         if cons:
             for constraint in cons:
                 if cmds.objExists(constraint):
@@ -350,13 +445,10 @@ class ch_anim_export(QtWidgets.QDialog):
 
         self.cleanUp()
         self.ch_fbx_export()
+        # After exporting the FBX file, show the dialog with the export location
+        self.showExportLocationDialog()
 
         
-        logger.debug("Error has occured")
-        file_handler.close()
-        logger.removeHandler(file_handler)
-
-
     
     # CREATURE EXPORT part of the scrript
 
@@ -395,7 +487,7 @@ class ch_anim_export(QtWidgets.QDialog):
         sel = cmds.listRelatives('Position', c=True, ad=True)
 
         # Get the folder path from the save_name_field
-        folder_path = self.save_name_field.text()
+        self.folder_path = self.save_name_field.text()
 
         # Call update_file_name to ensure newFileName is updated
         self.update_file_name()
@@ -425,17 +517,30 @@ class ch_anim_export(QtWidgets.QDialog):
             pass
         cmds.select('Position', hierarchy=True)
 
-        nameExport = folder_path + '/' + newFileName + '.fbx'
-        mel.FBXExport(s=True, f=nameExport, force=True, options=True)
+        if self.rbtnA.isChecked():
+            print("Folder path is not set. Creating a default folder.")
+            self.folder_path = self.createDirectory(DummyFolder)
+            nameExport = self.folder_path + '/' + newFileName + '.fbx'
+            print("Exporting FBX to:", nameExport)  # Add this line to verify the file path
+            mel.FBXExport(s=True, f=nameExport, force=True, options=True)
+            return
 
+        elif self.rbtnB.isChecked():
+            nameExport = self.folder_path + '/' + newFileName + '.fbx'
+            mel.FBXExport(s=True, f=nameExport, force=True, options=True)
+            print("FBX file exported to: {}".format(nameExport))
+            return
+        
         print("FBX file exported to: {}".format(nameExport))
         return
+
     
     def creature_export_process(self):
         self.imprtRef()
         self.remove_namespaces()
         self.bakeProcess()
         self.creature_anim_export()
+        self.showExportLocationDialog()
         return
 
 def clean_ui():

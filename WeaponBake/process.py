@@ -1,11 +1,42 @@
 import pymel.core as pm
 
-weaponR = pm.ls('R_Weapon_ctrl', r=True)
-weaponL = pm.ls('L_Weapon_ctrl', r=True)
+weapon_type_R = 'transform'  
+weaponRList = []
+weaponR = []
+for obj in pm.ls(type=weapon_type_R):
+    if obj.endswith('R_Weapon_ctrl'):
+        weaponRList.append(obj)
+
+weaponR = weaponRList[0]
+
+
+weapon_type_L = 'transform'
+weaponLList = []
+for obj in pm.ls(type=weapon_type_L):
+    if obj.endswith('L_Weapon_ctrl'):
+        weaponLList.append(obj)
+
+weaponL = weaponLList[0]
+
+
+
+objects_to_clean = [weaponL, weaponR]
+
+def delete_animation_keys(objects):
+    for obj in objects:
+        if pm.keyframe(obj, query=True, keyframeCount=True):
+            pm.cutKey(obj, clear=True)
+            print("Animation keys deleted for:", obj)
+        else:
+            print("No animation keys found for:", obj)
+
 
 
 
 def weaponCorR():
+
+    delete_animation_keys(weaponRList)
+
     sel = pm.ls(sl=True, fl=True)
     name = sel[0]
 
@@ -32,10 +63,14 @@ def weaponCorR():
 
     pm.delete(par)
     pm.delete(target)
+
+    print("Bake Process it done")
     return weaponCorR
 
 
 def weaponCorL():
+    delete_animation_keys(weaponLList)
+
     sel = pm.ls(sl=True, fl=True)
     name = sel[0]
 
@@ -61,11 +96,13 @@ def weaponCorL():
 
     pm.delete(par)
     pm.delete(target)
-
+    print("Bake Process it done")
     return weaponCorL
 
 
 def weaponNoTargR():
+    delete_animation_keys(weaponRList)
+
     wristR = pm.ls('Wrist_R', r=True)[0]
     pm.select(clear=True)
     pm.cutKey(weaponR)
@@ -84,10 +121,13 @@ def weaponNoTargR():
     pm.showHidden(above=True)
 
     pm.delete(par, loc)
+    print("Bake Process it done")
     return weaponNoTargR
 
 
 def weaponNoTargL():
+    delete_animation_keys(weaponLList)
+
     wristL = pm.ls('Wrist_L', r=True)[0]
     pm.select(clear=True)
     pm.cutKey(weaponL)
@@ -106,6 +146,7 @@ def weaponNoTargL():
     pm.showHidden(above=True)
 
     pm.delete(par, loc)
+    print("Bake Process it done")
     return weaponNoTargL
 
 
