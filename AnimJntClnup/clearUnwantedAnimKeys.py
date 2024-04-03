@@ -20,7 +20,7 @@ class BatchCleanupUI(QtWidgets.QDialog):
     def __init__(self):
         super(BatchCleanupUI, self).__init__()
         self.anim_folder_path = None
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        #self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
         self.setup_ui()
         # Initialize json_path with a default value
         initial_json_path = os.path.join(PATH, 'joints_set.json')  # Provide the correct JSON path
@@ -28,7 +28,7 @@ class BatchCleanupUI(QtWidgets.QDialog):
 
     def setup_ui(self):
         # Set up the UI layout
-        self.setWindowTitle("Batch jnt CleanUp")
+        self.setWindowTitle("Batch jnt CleanUp 2.0")
         self.setObjectName("BatchjntCleanUpID")
         self.setMinimumSize(400, 250)
         self.setMaximumSize(800, 500)
@@ -171,29 +171,43 @@ class BatchCleanupUI(QtWidgets.QDialog):
         for item in data:
             self.listWidget.addItem(item)
 
+    def cut_animation_keys(self, jnt, attributes):
+        """
+        Cut animation keys for the specified joint and attributes.
+        
+        Args:
+            joint (str): The name of the joint.
+            attributes (list): A list of attributes to cut keys from.
+        """
+        start_frame = cmds.playbackOptions(q=True, min=True)
+        end_frame = cmds.playbackOptions(q=True, max=True)
+
+        for attr in attributes:
+            if cmds.objExists(jnt):
+                cmds.cutKey(jnt, time= (start_frame, end_frame), attribute=attr, option="keys", cl=True)
+            else:
+                print("Joint does not exist:", jnt)
+
     def jnt_clean_up(self, json_path):
-        # Clean up specified joints by cutting animation keys based on data in the JSON file
+        """
+        Clean up specified joints by cutting animation keys based on data in the JSON file.
+        
+        Args:
+            json_path (str): The path to the JSON file containing joint data.
+        """
         with open(json_path, 'r') as f:
             jnt_list = json.load(f)
+            attributes_to_clean = []
+            if self.chk_box_trans.isChecked():
+                attributes_to_clean.extend(['translateX', 'translateY', 'translateZ'])
+            if self.chk_box_rot.isChecked():
+                attributes_to_clean.extend(['rotateX', 'rotateY', 'rotateZ'])
+            if self.chk_box_scl.isChecked():
+                attributes_to_clean.extend(['scaleX', 'scaleY', 'scaleZ'])
 
-        for jnt in jnt_list:
-            if cmds.objExists(jnt):
-                if self.chk_box_trans.isChecked():
-                    cmds.cutKey(jnt, attribute='translateX', option="keys")
-                    cmds.cutKey(jnt, attribute='translateY', option="keys")
-                    cmds.cutKey(jnt, attribute='translateZ', option="keys")
+            for jnt in jnt_list:
+                self.cut_animation_keys(jnt, attributes_to_clean)
 
-                if self.chk_box_rot.isChecked():
-                    cmds.cutKey(jnt, attribute='rotateX', option="keys")
-                    cmds.cutKey(jnt, attribute='rotateY', option="keys")
-                    cmds.cutKey(jnt, attribute='rotateZ', option="keys")
-
-                if self.chk_box_scl.isChecked():
-                    cmds.cutKey(jnt, attribute='scaleX', option="keys")
-                    cmds.cutKey(jnt, attribute='scaleY', option="keys")
-                    cmds.cutKey(jnt, attribute='scaleZ', option="keys")
-            else:
-                pass
 
     def create_directory(self, directory):
         # Create a given directory if it doesn't exist
