@@ -19,6 +19,7 @@ class ch_anim_export(QtWidgets.QDialog):
     def __init__(self):
         super(ch_anim_export, self).__init__()
         #self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        #self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
         self.setup_ui()
         self.toDel = None
         self.position = 'Position'
@@ -27,11 +28,11 @@ class ch_anim_export(QtWidgets.QDialog):
 
 
     def setup_ui(self):
-        self.setWindowTitle("Character Animation Export 4.1")
+        self.setWindowTitle("Character Animation Export 4.2")
         self.setObjectName("CHAnimExportID")
-        self.setMinimumSize(400, 315)
+        self.setMinimumSize(400, 250)
         self.setMaximumSize(800, 325)
-        self.resize(400, 315)
+        self.resize(400, 250)
         
         self.main_layout = QtWidgets.QVBoxLayout()
         self.main_layout.setAlignment(QtCore.Qt.AlignTop)
@@ -110,14 +111,13 @@ class ch_anim_export(QtWidgets.QDialog):
         self.export_creature_rig_btn()
         self.export_creature_anim_btn()
 
-
+        '''
         # Animation Folder UI components
         self.name_label = QtWidgets.QLabel('Animation Folder:')
         self.main_layout.addWidget(self.name_label)
 
         self.btn_layout_B = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.btn_layout_B)
-
 
         self.batch_path_name_field = QtWidgets.QLineEdit()
         self.batch_path_name_field.setPlaceholderText("Select folder with maya files for batch export") 
@@ -126,8 +126,9 @@ class ch_anim_export(QtWidgets.QDialog):
         self.batch_btn_set_path = QtWidgets.QPushButton("Set Path")
         self.batch_btn_set_path.clicked.connect(self.batch_btn_set_path_clicked)
         self.btn_layout_B.addWidget(self.batch_btn_set_path)
+        self.batch_export_creature_anim_btn()        
+        '''
 
-        self.batch_export_creature_anim_btn()
 
     def createDirectory(self, directory=DIRECTORY):
         """

@@ -47,11 +47,11 @@ class anim_transfer(QtWidgets.QDialog):
         self.combobox_race = QtWidgets.QComboBox()
         self.combobox_race.addItem("Human_Male")
         self.combobox_race.addItem("Human_Female")
-        '''
+      
         self.combobox_race.addItem("Eldar_Male")
         self.combobox_race.addItem("Eldar_Female")
         self.combobox_race.addItem("Spacemarine")
-        '''
+
 
         self.combobox_race.setCurrentIndex(0)  # Set the default selection
 
@@ -125,10 +125,11 @@ class anim_transfer(QtWidgets.QDialog):
         json_file_path_ref = os.path.join(USERAPPDIR, 'scripts', 'AnimTransfer', 'pins.json')
         if selected_option == "Human_Male":
             json_file_path_ctrl = os.path.join(USERAPPDIR, 'scripts', 'AnimTransfer', 'ctrlsList_Human.json')
+            start_pose = os.path.join(USERAPPDIR, 'scripts', 'AnimTransfer', 'human_male_skeleton_jnt_coordinates.json')
 
         elif selected_option == "Human_Female":
             json_file_path_ctrl = os.path.join(USERAPPDIR, 'scripts', 'AnimTransfer', 'ctrlsList_Human.json')
-    
+            start_pose = os.path.join(USERAPPDIR, 'scripts', 'AnimTransfer', 'human_female_skeleton_jnt_coordinates.json')
 
 
         with open(json_file_path_ref, 'r') as json_file:
@@ -155,9 +156,11 @@ class anim_transfer(QtWidgets.QDialog):
             toDel = cmds.createNode('transform', n='toDel_GP_{}'.format(cmds.ls(assemblies=True, long=True)[-1])) 
         else:
             pass
-
+        
+        self.applyAnimationFromJSON(start_pose)
+        
         for s, t in zip(refSkel, ctrlList):
-            par = cmds.parentConstraint(s, t, mo=1)
+            par = cmds.orientConstraint(s, t, mo=1)
             cmds.parent(par, self.toDel)
 
         #Skirt Match
@@ -167,7 +170,7 @@ class anim_transfer(QtWidgets.QDialog):
         
         for sj, sc in zip(skirt_src_jnt, skirt_ctrls):
             if cmds.objExists(sj) and cmds.objExists(sc):
-                skirt_par = cmds.parentConstraint(sj, sc, mo=0)
+                skirt_par = cmds.orientConstraint(sj, sc, mo=0)
                 cmds.parent(skirt_par, self.toDel)
 
         #Weapon Match
@@ -180,6 +183,30 @@ class anim_transfer(QtWidgets.QDialog):
                 cmds.parent(weapon_par, toDel)
             else:
                 pass
+
+    def applyAnimationFromJSON(self, json_path):
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+
+        for joint, channels in data.items():
+            if cmds.objExists(joint):
+                for channel, keyframes in channels.items():
+                    for keyframe_data in keyframes:
+                        # Ensure keyframe_data has the expected structure
+                        if len(keyframe_data) != 6:
+                            print("Invalid keyframe_data structure for {}.{}: {}".format(joint, channel, keyframe_data))
+                            continue
+
+                        frame, value, inWeight, inAngle, outWeight, outAngle = keyframe_data
+
+                        # Set attribute values on the joint
+                        attribute_path = "{}.{}".format(joint, channel)
+                        try:
+                            cmds.setKeyframe(attribute_path, time=frame, value=value)
+                            # Additional code if inWeight, inAngle, outWeight, outAngle need to be set
+                        except RuntimeError as e:
+                            print("Error setting keyframe for {}.{} at frame {}: {}".format(joint, channel, frame, e))
+
 
 
     def match_to_anim_skel(self):
@@ -216,14 +243,18 @@ class anim_transfer(QtWidgets.QDialog):
         else:
             pass
         
+        pelvParOPnt = cmds.pointConstraint('Pelvis', 'RootX_M', mo=0)
+        pelvParOri = cmds.orientConstraint('Pelvis', 'RootX_M', mo=1)
+        cmds.parent(pelvParOri, pelvParOPnt, toDel)
+
         for s, t in zip(animSkel, srcSkel):
-            par = cmds.parentConstraint(s, t, mo=0)
-            cmds.parent(par, toDel)
+            parOri = cmds.orientConstraint(s, t, mo=0)
+            cmds.parent(parOri, toDel)
         
+
         an_for_IK = ['Reference_L_foot', 'Reference_R_foot']
         ctrl_IK = ['IKLeg_L', 'IKLeg_R']
  
-
         for s, t in zip(an_for_IK, ctrl_IK):
             par = cmds.pointConstraint(s, t, mo=0)
             parOr = cmds.orientConstraint(s, t, mo=1)
