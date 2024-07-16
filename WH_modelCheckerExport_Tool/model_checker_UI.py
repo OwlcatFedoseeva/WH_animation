@@ -13,6 +13,7 @@ if script_dir not in sys.path:
 # Change current working directory to the script's directory
 os.chdir(script_dir)
 
+
 class QTextEditLogger(QtWidgets.QMainWindow):
     def __init__(self, log_file_path, parent=None):
         super(QTextEditLogger, self).__init__(parent)
@@ -55,9 +56,9 @@ class model_checker_UI(QtWidgets.QDialog):
     def clear_log_handlers(self):
         if self.logger.hasHandlers():
             self.logger.handlers.clear()
-    
+
     def setup_ui(self):
-        self.setWindowTitle("WH Model Checker 3.0")
+        self.setWindowTitle("WH Model Checker 4.0")
         self.setObjectName("WHModelCheckerID")
         self.setMinimumSize(265, 450)
         self.setMaximumSize(365, 450)
@@ -69,6 +70,57 @@ class model_checker_UI(QtWidgets.QDialog):
         self.main_layout.setSpacing(5)
         self.setLayout(self.main_layout)
 
+        self.setup_save_ui()
+        self.setup_check_ui()
+
+    def setup_save_ui(self):
+        self.save_set_layout = QtWidgets.QVBoxLayout()
+        self.save_set_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.save_set_layout.setContentsMargins(3, 3, 3, 3)
+        self.save_set_layout.setSpacing(2)
+        self.main_layout.addLayout(self.save_set_layout)
+
+        self.nameLabel = QtWidgets.QLabel(self)
+        self.nameLabel.setText('File Export Settings:')
+        self.save_set_layout.addWidget(self.nameLabel)
+
+        self.FileNameField = QtWidgets.QLineEdit()
+        self.save_set_layout.addWidget(self.FileNameField)
+        self.FileNameField.setPlaceholderText("NAME")
+
+        self.text_field_layout = QtWidgets.QHBoxLayout()
+        self.text_field_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.text_field_layout.setContentsMargins(3, 3, 3, 3)
+        self.text_field_layout.setSpacing(2)
+        self.save_set_layout.addLayout(self.text_field_layout)
+
+        self.savePathField = QtWidgets.QLineEdit()
+        self.text_field_layout.addWidget(self.savePathField)
+        self.savePathField.setPlaceholderText("Select folder where you want to save the file")
+
+        self.btn_set_path = QtWidgets.QPushButton("Set Path")
+        self.btn_set_path.clicked.connect(self.btn_set_path_clicked)
+        self.text_field_layout.addWidget(self.btn_set_path)
+
+        self.save_file_format_layout = QtWidgets.QHBoxLayout()
+        self.save_file_format_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.save_file_format_layout.setContentsMargins(3, 3, 3, 3)
+        self.save_file_format_layout.setSpacing(2)
+        self.save_set_layout.addLayout(self.save_file_format_layout)
+
+        self.ma_radio_btn = QtWidgets.QRadioButton(".ma")
+        self.save_file_format_layout.addWidget(self.ma_radio_btn)
+        self.mb_radio_btn = QtWidgets.QRadioButton(".mb")
+        self.mb_radio_btn.setChecked(True)
+        self.save_file_format_layout.addWidget(self.mb_radio_btn)
+        self.fbx_radio_btn = QtWidgets.QRadioButton(".fbx")
+        self.save_file_format_layout.addWidget(self.fbx_radio_btn)
+
+        self.btn_save_data = QtWidgets.QPushButton("Save data")
+        self.save_set_layout.addWidget(self.btn_save_data)
+        self.btn_save_data.clicked.connect(self.btn_save_data_clicked)
+
+    def setup_check_ui(self):
         self.headder_layout = QtWidgets.QVBoxLayout()
         self.headder_layout.setAlignment(QtCore.Qt.AlignTop)
         self.headder_layout.setContentsMargins(3, 3, 3, 3)
@@ -119,6 +171,12 @@ class model_checker_UI(QtWidgets.QDialog):
         spacer = QtWidgets.QSpacerItem(10, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.checkbox_layout.addItem(spacer)
 
+        self.correct_tex_path_name_chk = QtWidgets.QCheckBox("Correct texture path")
+        self.checkbox_layout.addWidget(self.correct_tex_path_name_chk)
+
+        spacer = QtWidgets.QSpacerItem(10, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.checkbox_layout.addItem(spacer)
+
         self.correct_shader_assignment_chk = QtWidgets.QCheckBox("Correct shader assignment")
         self.checkbox_layout.addWidget(self.correct_shader_assignment_chk)
 
@@ -142,54 +200,8 @@ class model_checker_UI(QtWidgets.QDialog):
 
         self.sel_all_btn = QtWidgets.QPushButton("Run All")
         self.sel_all_btn.clicked.connect(self.sel_all_btn_clicked)
-        self.sel_all_btn.setFixedSize(250, 30)
+        #self.sel_all_btn.setFixedSize(250, 30)
         self.checkbox_btn_layout.addWidget(self.sel_all_btn)
-
-        self.text_field_layout = QtWidgets.QHBoxLayout()
-        self.text_field_layout.setAlignment(QtCore.Qt.AlignTop)
-        self.text_field_layout.setContentsMargins(3, 3, 3, 3)
-        self.text_field_layout.setSpacing(2)
-        self.main_layout.addLayout(self.text_field_layout)
-
-        self.savePathField = QtWidgets.QLineEdit()
-        self.text_field_layout.addWidget(self.savePathField)
-        self.savePathField.setPlaceholderText("Select folder where you want to save the file")
-
-        self.btn_set_path = QtWidgets.QPushButton("Set Path")
-        self.btn_set_path.clicked.connect(self.btn_set_path_clicked)
-        self.text_field_layout.addWidget(self.btn_set_path)
-
-        self.save_set_layout = QtWidgets.QVBoxLayout()
-        self.save_set_layout.setAlignment(QtCore.Qt.AlignTop)
-        self.save_set_layout.setContentsMargins(3, 3, 3, 3)
-        self.save_set_layout.setSpacing(2)
-        self.main_layout.addLayout(self.save_set_layout)
-
-        self.nameLabel = QtWidgets.QLabel(self)
-        self.nameLabel.setText('File Export Settings:')
-        self.save_set_layout.addWidget(self.nameLabel)
-
-        self.FileNameField = QtWidgets.QLineEdit()
-        self.save_set_layout.addWidget(self.FileNameField)
-        self.FileNameField.setPlaceholderText("NAME")
-
-        self.save_file_format_layout = QtWidgets.QHBoxLayout()
-        self.save_file_format_layout.setAlignment(QtCore.Qt.AlignTop)
-        self.save_file_format_layout.setContentsMargins(3, 3, 3, 3)
-        self.save_file_format_layout.setSpacing(2)
-        self.save_set_layout.addLayout(self.save_file_format_layout)
-
-        self.ma_radio_btn = QtWidgets.QRadioButton(".ma")
-        self.save_file_format_layout.addWidget(self.ma_radio_btn)
-        self.mb_radio_btn = QtWidgets.QRadioButton(".mb")
-        self.mb_radio_btn.setChecked(True)
-        self.save_file_format_layout.addWidget(self.mb_radio_btn)
-        self.fbx_radio_btn = QtWidgets.QRadioButton(".fbx")
-        self.save_file_format_layout.addWidget(self.fbx_radio_btn)
-
-        self.btn_save_data = QtWidgets.QPushButton("Save data")
-        self.save_set_layout.addWidget(self.btn_save_data)
-        self.btn_save_data.clicked.connect(self.btn_save_data_clicked)
 
     def show_log_window(self):
         if not self.log_window:
@@ -206,8 +218,8 @@ class model_checker_UI(QtWidgets.QDialog):
             try:
                 method()
             except Exception as e:
-                errors.append(f"{description} failed: {str(e)}")
-                self.logger.error(f"{description} failed: {str(e)}")
+                errors.append("%s failed: %s" % (description, str(e)))
+                self.logger.error("%s failed: %s" % (description, str(e)))
 
         if self.remove_namespace_chk.isChecked():
             run_check(self.remove_namespaces, "Removing namespaces")
@@ -219,6 +231,8 @@ class model_checker_UI(QtWidgets.QDialog):
             run_check(self.create_model_group, "Grouping all models")
         if self.correct_material_tex_name_chk.isChecked():
             run_check(self.correct_material_and_textures, "Correcting material and textures names")
+        if self.correct_tex_path_name_chk.isChecked():
+            run_check(self.correct_texture_path, "Correcting texture paths")
         if self.correct_shader_assignment_chk.isChecked():
             run_check(self.correct_shader_assignment, "Correcting shader assignment")
         if self.remove_unused_materials_chk.isChecked():
@@ -243,7 +257,9 @@ class model_checker_UI(QtWidgets.QDialog):
     def delete_empty_uv_sets(self):
         try:
             MayaSceneTools.clean_up_uvsets()
+            MayaSceneTools.uv_set_name_check()
             self.logger.info("Removing double UV sets... -> DONE")
+            self.logger.info("Checking the UVset name... -> DONE")
         except Exception as e:
             self.logger.error("There are no double UV sets.")
         self.show_log_window()
@@ -271,6 +287,13 @@ class model_checker_UI(QtWidgets.QDialog):
         except Exception as e:
             self.logger.error("Nothing to correct here. Skipping forward.")
         self.show_log_window()
+    
+    def correct_texture_path(self):
+        try:
+            MayaSceneTools.update_texture_paths()
+        except Exception as e:
+            self.logger.error("Nothing to correct here. Skipping forward.")
+        self.show_log_window()
 
     def correct_shader_assignment(self):
         try:
@@ -282,6 +305,7 @@ class model_checker_UI(QtWidgets.QDialog):
     def scene_optimization(self):
         try:
             MayaSceneTools.scene_optimization()
+
             self.logger.info("Removing unused materials... -> DONE")
         except Exception as e:
             self.logger.error("Failed to remove unused materials.")
@@ -298,7 +322,7 @@ class model_checker_UI(QtWidgets.QDialog):
     def btn_set_path_clicked(self):
         save_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
         self.savePathField.setText(save_path)
-        self.logger.info(f"Selected save path: {save_path}")
+        self.logger.info("Selected save path: %s" % save_path)
         #self.show_log_window()
 
     def btn_save_data_clicked(self):
@@ -316,7 +340,7 @@ class model_checker_UI(QtWidgets.QDialog):
             return
 
         file_format = ".ma" if self.ma_radio_btn.isChecked() else ".mb" if self.mb_radio_btn.isChecked() else ".fbx"
-        full_path = os.path.join(save_path, f"{file_name}{file_format}")
+        full_path = os.path.join(save_path, "%s%s" % (file_name, file_format))
         
         try:
             if file_format == ".ma":
@@ -329,24 +353,11 @@ class model_checker_UI(QtWidgets.QDialog):
                 cmds.file(rename=full_path)
                 cmds.file(save=True, type="FBX export")
 
-            self.logger.info(f"Data saved to: {full_path}")
-            QtWidgets.QMessageBox.information(self, "Success", f"File saved successfully to {full_path}")
+            self.logger.info("Data saved to: %s" % full_path)
+            QtWidgets.QMessageBox.information(self, "Success", "File saved successfully to %s" % full_path)
         except Exception as e:
-            self.logger.error(f"Failed to save file: {str(e)}")
-            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save file: {str(e)}")
+            self.logger.error("Failed to save file: %s" % str(e))
+            QtWidgets.QMessageBox.critical(self, "Error", "Failed to save file: %s" % str(e))
+
 
         self.show_log_window()
-
-
-def main():
-    if cmds.window("WHModelCheckerID", exists=True):
-        cmds.deleteUI("WHModelCheckerID", window=True)
-
-    if cmds.windowPref("WHModelCheckerID", exists=True):
-        cmds.windowPref("WHModelCheckerID", remove=True)
-
-    global myUI
-    myUI = model_checker_UI()
-    myUI.show()
-
-main()

@@ -107,7 +107,6 @@ class MayaSceneTools:
             if uArray.length() == 0 and vArray.length() == 0:
                 print("Deleting empty UV set '{}'...".format(uvset))
                 cmds.polyUVSet(meshNode, delete=True, uvSet=uvset)
-
     @staticmethod
     def clean_up_uvsets():
         """
@@ -120,7 +119,7 @@ class MayaSceneTools:
             MayaSceneTools.deleteEmptyUvSets(s)
             remainingUvSets.update(cmds.polyUVSet(s, query=True, allUVSets=True))
             cmds.delete(s, all=True, constructionHistory=True)
-        
+        '''
         if len(remainingUvSets) > 1:
             cmds.confirmDialog(
                 title='Multiple UV Sets',
@@ -128,7 +127,34 @@ class MayaSceneTools:
                 button=['OK'],
                 defaultButton='OK'
             )
+        '''
+
         print('Empty UV sets have been deleted')
+    
+    
+    @staticmethod
+    def uv_set_name_check():
+        # Get all mesh objects in the scene
+        meshes = cmds.ls(type='mesh')
+        print(meshes)
+        
+        for mesh in meshes:
+            # Get all UV sets for the current mesh
+            uvSets = cmds.polyUVSet(mesh, query=True, allUVSets=True)
+            print(f"UV sets for {mesh}: {uvSets}")
+            
+            for uvSet in uvSets:
+                # Check if the UV set name is not 'map1'
+                if uvSet != 'map1':
+                    # Rename the UV set to 'map1'
+                    cmds.polyUVSet(mesh, rename=True, uvSet=uvSet, newUVSet='map1')
+                    print(f"Renamed UV set '{uvSet}' to 'map1' for mesh '{mesh}'")
+        
+        # Verify the renaming
+        for mesh in meshes:
+            uvSets = cmds.polyUVSet(mesh, query=True, allUVSets=True)
+            print(f"Updated UV sets for {mesh}: {uvSets}")
+
 
     @staticmethod
     def remove_namespaces():
@@ -298,91 +324,117 @@ class MayaSceneTools:
         return cmds.ls(geometry=True, lights=True, cameras=True)
 
     @staticmethod
-    def find_unused_materials():
+    def get_all_shading_nodes():
         """
-        Finds and returns a list of unused materials in the scene.
+        Get a list of all shading nodes in the scene.
         """
-        used_materials = set()
-        for obj in MayaSceneTools.get_scene_objects():
-            if cmds.objectType(obj) == 'mesh':
-                shading_groups = cmds.listConnections(obj, type='shadingEngine')
-                if shading_groups:
-                    for sg in shading_groups:
-                        connected_materials = cmds.ls(cmds.listConnections(sg), materials=True)
-                        used_materials.update(connected_materials)
-        all_materials = set(MayaSceneTools.get_all_materials())
-        return all_materials - used_materials
-
-    @staticmethod
-    def find_unused_shaders():
-        """
-        Finds and returns a list of unused shaders in the scene.
-        """
-        used_shaders = set()
-        for obj in MayaSceneTools.get_scene_objects():
-            if cmds.objectType(obj) == 'mesh':
-                shading_groups = cmds.listConnections(obj, type='shadingEngine')
-                used_shaders.update(shading_groups)
-        all_shaders = set(MayaSceneTools.get_all_shaders())
-        return all_shaders - used_shaders
-
-    @staticmethod
-    def remove_unused_materials():
-        """
-        Removes all unused materials from the scene.
-        """
-        unused_materials = MayaSceneTools.find_unused_materials()
-        if unused_materials:
-            cmds.delete(unused_materials)
-        print('Removed unused materials.')
+        # List various types of shading nodes
+        materials = cmds.ls(materials=True)
+        #textures = cmds.ls(type='file')
+        shading_groups = cmds.ls(type='shadingEngine')  # For shading groups
+        # Combine all lists into one
+        shading_nodes = materials + shading_groups
+        return shading_nodes
     
-    @staticmethod   
-    def remove_unused_shaders(do_not_delete=None):
-        """
-        Removes all unused shaders from the scene, except those in the do_not_delete list.
-        
-        Parameters:
-        do_not_delete (list): List of shader names to skip. Defaults to an empty list.
-        """
-        if do_not_delete is None:
-            do_not_delete = []
-
-        # Always skip these shaders
-        always_do_not_delete = ['standardSurface1', 'shaderGlow1', 'particleCloud1', 'lambert1']
-        
-        # Combine both lists
-        do_not_delete = set(do_not_delete + always_do_not_delete)
-        
-        unused_shaders = MayaSceneTools.find_unused_shaders()
-        
-        # Filter out shaders in the do_not_delete list
-        shaders_to_delete = [shader for shader in unused_shaders if shader not in do_not_delete]
-        
-        if shaders_to_delete:
-            cmds.delete(shaders_to_delete)
-        
-        print('Removed unused shaders, except those in the do_not_delete list.')
-
     @staticmethod
-    def remove_unused_texture_files():
+    def is_node_assigned(node):
         """
-        Removes all unused texture files from the scene.
+        Check if a shading node is connected to any geometry.
         """
-        unused_texture_files = MayaSceneTools.find_unused_texture_files()
-        if unused_texture_files:
-            cmds.delete(unused_texture_files)
+        shading_groups = cmds.listConnections(node, type='shadingEngine')
+        if shading_groups:
+            for sg in shading_groups:
+                geometry = cmds.sets(sg, q=True)
+                if geometry:
+                    return True
+        return False
+    
+    @staticmethod
+    def delete_unused_shading_nodes():
+        """
+        Find all shading nodes that are not connected to any geometry and delete them.
+        """
+        shading_nodes = MayaSceneTools.get_all_shading_nodes()
+        to_delete = []
+        
+        for node in shading_nodes:
+            if cmds.nodeType(node) == 'shadingEngine':
+                # Check if shading group has any incoming connections
+                incoming_connections = cmds.listConnections(node, source=True, destination=False)
+                if not incoming_connections:
+                    to_delete.append(node)
+            else:
+                if not MayaSceneTools.is_node_assigned(node):
+                    to_delete.append(node)
+        
+        if to_delete:
+            cmds.delete(to_delete)
+            print(f"Deleted unused shading nodes: {to_delete}")
+        else:
+            print("No unused shading nodes found.")
+
+
         
     @staticmethod
     def check_and_delete_unused_texture_files():
-        """
-        Checks for and deletes unused texture files in the scene.
-        """
-        all_texture_files = MayaSceneTools.get_all_texture_files()
-        for texture_file in all_texture_files:
-            used_nodes = cmds.listConnections(texture_file, source=False)
-            if not used_nodes:
-                print(f"Deleting unused texture file node: {texture_file}")
-                cmds.delete(texture_file)
+
+        # List of texture node types we want to check
+        texture_node_types = ['file', 'psdFileTex']
+        
+        for texture_type in texture_node_types:
+            # Get all texture nodes of the current type
+            texture_nodes = cmds.ls(type=texture_type)
+            
+            for node in texture_nodes:
+                # Check if the texture node is connected to a shader
+                is_connected_to_shader = False
+                connections = cmds.listConnections(node, source=False, destination=True, plugs=True)
+                
+                if connections:
+                    for conn in connections:
+                        # Check if the connection is to a shading group or material
+                        connected_node = conn.split('.')[0]
+                        if cmds.objectType(connected_node, isType='shadingEngine') or \
+                        cmds.objectType(connected_node, isType='lambert') or \
+                        cmds.objectType(connected_node, isType='phong') or \
+                        cmds.objectType(connected_node, isType='blinn') or \
+                        cmds.objectType(connected_node, isType='surfaceShader') or \
+                        cmds.objectType(connected_node, isType='aiStandardSurface'):
+                            is_connected_to_shader = True
+                            break
+                
+                if not is_connected_to_shader:
+                    # If there are no connections to shaders, delete the node
+                    cmds.delete(node)
+                    print(f'Deleted unconnected texture node: {node}')
+                else:
+                    print(f'Texture node {node} is connected to a shader.')
+
+    def delete_unconnected_place2dTexture_nodes():
+        # Get all place2dTexture nodes
+        texture_nodes = cmds.ls(type='place2dTexture')
+        
+        for node in texture_nodes:
+            # Check if the place2dTexture node is connected to a file or psdFileTex
+            is_connected_to_texture = False
+            connections = cmds.listConnections(node, source=False, destination=True, plugs=True)
+            
+            if connections:
+                for conn in connections:
+                    # Check if the connection is to a file or psdFileTex
+                    connected_node = conn.split('.')[0]
+                    if cmds.objectType(connected_node, isType='file') or \
+                    cmds.objectType(connected_node, isType='psdFileTex'):
+                        is_connected_to_texture = True
+                        break
+            
+            if not is_connected_to_texture:
+                # If there are no connections to textures, delete the node
+                cmds.delete(node)
+                print(f'Deleted unconnected place2dTexture node: {node}')
+            else:
+                print(f'place2dTexture node {node} is connected to a texture.')
+
 
     @staticmethod
     def scene_optimization():
@@ -391,15 +443,18 @@ class MayaSceneTools:
         """
         print('Starting scene optimization...')
         # Удаление пустых UV-наборов
-        MayaSceneTools.clean_up_uvsets()
+        #MayaSceneTools.clean_up_uvsets()
         
         # Создание группы моделей
         #MayaSceneTools.create_model_group()
 
         # Удаление неиспользуемых материалов и шейдеров
-        MayaSceneTools.remove_unused_materials()
-        MayaSceneTools.remove_unused_shaders()
+        MayaSceneTools.delete_unused_shading_nodes()
+        MayaSceneTools.check_and_delete_unused_texture_files()
+        MayaSceneTools.delete_unconnected_place2dTexture_nodes()
+        MayaSceneTools.delete_unused_shading_nodes()
         
+        '''
         # Удаление пустых нод
         MayaSceneTools.check_and_delete_unused_texture_files()
         
@@ -417,8 +472,8 @@ class MayaSceneTools:
                     print("Deleted selection set:", sel_set)
                 except Exception as e:
                     print("Error deleting selection set:", sel_set, str(e))
-
         
+        '''
         print('Scene optimization complete!')
 
     @staticmethod
@@ -438,15 +493,30 @@ class MayaSceneTools:
     @staticmethod
     def material_rename():
         '''
-        This function renames the shaders and materials based on the transparency channels connections. 
+        Fistly this function deletes 'pasted__' from names of ALL items in the scene.
+        Then renames the shaders and materials based on the transparency channels connections. 
         If there is a connection in transparency channel, then the material name will contain _cutout_d in its' name;
         Otherwise, the material will contain _opaque_d in its name;
         Materials, which already have correct naming will be ignored;
         '''
-
-        selected = cmds.ls(materials=True)
+        all_objects = cmds.ls()
         
-        for item in selected:
+        #print(all_objects)
+        for i in all_objects:
+            if "pasted__" in i:
+                #print(i)
+                name = i
+                newName = name.split("__")[1]
+                #print(newName)
+                if cmds.objExists(i):
+                    cmds.rename(i, newName)
+                else:
+                    pass
+
+        all_materials = cmds.ls(materials=True)
+
+        
+        for item in all_materials:
             # Check if the shader name already contains "_cutout_d" or "_opaque_d"
             if "_cutout_d" in item or "_opaque_d" in item:
                 continue
@@ -481,6 +551,39 @@ class MayaSceneTools:
             # Rename material and texture node
             cmds.rename(material_name, new_material_name)
             cmds.rename(texture_node, new_texture_name)
+
+    @staticmethod
+    def update_texture_paths():
+        # Get the root directory of the project
+        project_root = cmds.workspace(q=True, rootDirectory=True)
+        
+        # Find all file texture nodes in the scene
+        file_nodes = cmds.ls(type='file')
+        
+        for file_node in file_nodes:
+            # Get the current texture file path
+            old_path = cmds.getAttr(file_node + '.fileTextureName')
+            
+            # Check if the file exists at the current path
+            if cmds.file(old_path, q=True, exists=True):
+                # Check if the texture is in the current project repository
+                if old_path.startswith(project_root):
+                    print(f'Found in current repository: {old_path}')
+                else:
+                    # If the texture is not in the current project, remove the path before "World"
+                    index = old_path.find('World')
+                    if index != -1:
+                        new_path = old_path[index:]
+                        cmds.setAttr(file_node + '.fileTextureName', new_path, type='string')
+                        print(f'Updated: {old_path} -> {new_path}')
+                    else:
+                        # If "World" keyword is not found, disconnect the texture from the material
+                        cmds.setAttr(file_node + '.fileTextureName', '', type='string')
+                        print(f'Disconnected: {old_path}')
+            else:
+                # If the texture is not found, disconnect it from the material
+                cmds.setAttr(file_node + '.fileTextureName', '', type='string')
+                print(f'Disconnected: {old_path}')
 
 
     @staticmethod
