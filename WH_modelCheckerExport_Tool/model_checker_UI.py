@@ -39,8 +39,10 @@ class model_checker_UI(QtWidgets.QDialog):
     def __init__(self):
         super(model_checker_UI, self).__init__()
         self.setup_ui()
-        self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        #self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(QtCore.Qt.Tool)
 
+        
         self.log_window = None
         self.log_file_path = "model_checker.log"
 
@@ -361,3 +363,18 @@ class model_checker_UI(QtWidgets.QDialog):
 
 
         self.show_log_window()
+
+
+def main():
+    if cmds.window("WHModelCheckerID", exists=True):
+        cmds.deleteUI("WHModelCheckerID", window=True)
+
+    if cmds.windowPref("WHModelCheckerID", exists=True):
+        cmds.windowPref("WHModelCheckerID", remove=True)
+
+
+    global myUI
+    myUI = model_checker_UI()
+    myUI.show()
+
+main()

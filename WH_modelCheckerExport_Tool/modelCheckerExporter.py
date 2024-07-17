@@ -233,7 +233,7 @@ class MayaSceneTools:
             return
 
         stripped_file_name, _ = os.path.splitext(current_file_name)
-        group_name = stripped_file_name + '_GP'
+        group_name = stripped_file_name
 
         if cmds.objExists(group_name):
             print("Model Group exists.")
