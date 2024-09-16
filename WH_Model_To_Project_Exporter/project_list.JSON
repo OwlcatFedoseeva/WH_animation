@@ -1,0 +1,9 @@
+{
+    "WH2": {
+        "project_name": "WH2",
+        "local_path": "E:/Art",
+        "server_path": "D:/master/ProjectKingmaker2/Assets/Test/Art",
+        "scale_factor": "100",
+        "image_format": "TIFF"
+    }
+}
