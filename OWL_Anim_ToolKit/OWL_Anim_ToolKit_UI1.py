@@ -2,6 +2,15 @@ import os
 from PySide2 import QtWidgets, QtCore
 import maya.cmds as cmds
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
+import importlib
+
+modules_to_reload = ['_UI._logo_section_UI', '_UI._project_section_UI',
+    '_UI._tabs_section_UI', '_UI._progress_section_UI',
+    '_UI._logger_section_UI']
+
+for mod_name in modules_to_reload:
+    mod = importlib.import_module(mod_name)
+    importlib.reload(mod)
 
 from _UI._logo_section_UI import create_logo_section
 from _UI._project_section_UI import create_project_section
@@ -19,6 +28,7 @@ class OWLAnimKitUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
         self.setWindowTitle('OWL Animation Kit')
         self.setObjectName("OWLAnimationKitID")
         self.setMinimumSize(500, 860)
+        self.setMaximumSize(500, 860)
         self.setWindowFlags(QtCore.Qt.Tool)
         self._build_ui()
 
@@ -28,21 +38,25 @@ class OWLAnimKitUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
 
-        layout.addLayout(create_logo_section(MODULE_DIRECTORY))
-        layout.addWidget(self._divider())
-        layout.addLayout(create_project_section(self))
-        layout.addWidget(self._divider())
-        layout.addWidget(create_tabs_section())
-        layout.addWidget(self._divider())
-        layout.addWidget(create_progress_section(self))
-        layout.addWidget(self._divider())
-        layout.addLayout(create_logger_section(self))
+        try:
+            layout.addLayout(create_logo_section(MODULE_DIRECTORY))
+            layout.addWidget(self._divider())
+            layout.addLayout(create_project_section(self))  
+            layout.addWidget(self._divider())
+            layout.addWidget(create_tabs_section(self))
+            layout.addWidget(self._divider())
+            layout.addWidget(create_progress_section(self))
+            layout.addWidget(self._divider())
+            layout.addLayout(create_logger_section(self))
+        except Exception as e:
+            cmds.warning(f"Error building UI: {e}")
 
     def _divider(self):
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)
         line.setFrameShadow(QtWidgets.QFrame.Sunken)
         return line
+
 
 def main():
     # Удаление старого UI, если он уже существует
@@ -55,4 +69,5 @@ def main():
     global anim_kit_ui
     anim_kit_ui = OWLAnimKitUI()
     anim_kit_ui.show()
+
 main()
