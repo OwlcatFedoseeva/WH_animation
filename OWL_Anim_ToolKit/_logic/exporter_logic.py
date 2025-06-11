@@ -1,73 +1,69 @@
+import os
 import maya.cmds as cmds
-from PySide2 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore
+from .project_loader import get_project_data
+from .bake_anim_utils import bake_animation_for_project
 
-
-def export_batch(self):
-    print("Batch export initiated")
-    # Add logic for batch exporting here
-
-def export_current(self):
+def export_current(ui):
     print("EXPORTING CURRENT FILE")
-    char_type = self.ui.combobox_race.currentText()
+
+    project = ui.project_combo.currentText()
+    try:
+        project_data = get_project_data(project)
+    except Exception as e:
+        print(f"[ERROR] Could not load project data: {e}")
+        return
+
+    export_dir = project_data.get("export_path")
+    if not export_dir:
+        print(f"[ERROR] Project config missing 'export_path'")
+        return
+
+    char_type = ui.combobox_race.currentText()
     supported_char_types = {"HUMAN", "ELDAR", "SPACEMARINE", "KROOT", "OGRYN"}
 
-    if char_type in supported_char_types:
-        if self.ui.checkbox_export_options.isChecked():
-            clips = self.create_frame_range_comboboxes()
-            num_clips = len(clips)
-            for clip_index in range(num_clips):
-                self.export_animation_process(clip_index)
-        else:
-            start_frame = cmds.playbackOptions(q=True, minTime=True)
-            end_frame = cmds.playbackOptions(q=True, maxTime=True)
-            #name, folder_path = owl_export_anim_common.file_save_to_default_location()
-            self.export_animation(start_frame, end_frame)
-    else:
-        print("ERROR")
-
-def export_animation_process(self, clip_index):
-    start_frame, end_frame = self.get_frame_range_values(clip_index)
-    if start_frame is None or end_frame is None:
-        print(f"Skipping export for clip {clip_index} due to invalid frame range.")
+    if char_type not in supported_char_types:
+        print(f"[ERROR] Unsupported character type: {char_type}")
         return
-    self.export_animation(start_frame, end_frame)
 
-def export_animation(self, start_frame, end_frame):
-    print(f"Exporting animation from frame {start_frame} to {end_frame}")
-    try:
-        # The export logic is customized for your project and will likely involve using the animation library
-        # such as exporting using fbx. Please replace the following line with your export logic.
-        print(f"Exporting animation with range: {start_frame} to {end_frame}")
-    except Exception as e:
-        print(f"Error during export: {e}")
+    if ui.checkbox_export_options.isChecked():
+        frame_ranges = create_frame_range_comboboxes(ui)
+        for clip_index, (start_frame, end_frame) in enumerate(frame_ranges):
+            export_animation(ui, start_frame, end_frame, project, export_dir, clip_index)
+    else:
+        start_frame = cmds.playbackOptions(q=True, minTime=True)
+        end_frame = cmds.playbackOptions(q=True, maxTime=True)
+        export_animation(ui, start_frame, end_frame, project, export_dir)
 
-def create_frame_range_comboboxes(self):
-    # Create and return comboboxes for frame range selection
-    return []
+def export_animation(ui, start_frame, end_frame, project, export_dir, clip_index=None):
+    bake_animation_for_project(project, start_frame, end_frame)
 
-def toggle_export_clips(self, state):
-    # Enable or disable the export clips controls based on the state
+    scene_name = cmds.file(q=True, sceneName=True, shortName=True)
+    name_no_ext = os.path.splitext(scene_name)[0]
+    suffix = f"_{clip_index}" if clip_index is not None else ""
+    export_file = os.path.join(export_dir, f"{name_no_ext}_{int(start_frame)}-{int(end_frame)}{suffix}.fbx")
+
+    # TODO: вызвать реальный экспорт
+    print(f"[EXPORT] Exported animation to: {export_file}")
+
+def create_frame_range_comboboxes(ui):
+    frame_ranges = []
+    for frame_pair in ui.frame_range_comboboxes:
+        start_field, end_field = frame_pair
+        try:
+            start = int(start_field.text())
+            end = int(end_field.text())
+            if start <= end:
+                frame_ranges.append((start, end))
+            else:
+                print(f"Invalid range: {start} > {end}")
+        except ValueError:
+            print("Invalid frame number entered.")
+    return frame_ranges
+
+def toggle_export_clips(ui, state):
     enabled = state == QtCore.Qt.Checked
-    for i in range(self.ui.clips_layout.count()):
-        widget = self.ui.clips_layout.itemAt(i).widget()
+    for i in range(ui.clips_layout.count()):
+        widget = ui.clips_layout.itemAt(i).widget()
         if widget:
             widget.setEnabled(enabled)
-
-def get_frame_range_values(self, clip_index):
-    start_frame_field, end_frame_field = self.frame_range_comboboxes[clip_index]
-    if not start_frame_field.text() or not end_frame_field.text():
-        print(f"Error: Start and/or end frame fields are empty for clip {clip_index}")
-        return None, None
-
-    try:
-        start_frame = int(start_frame_field.text())
-        end_frame = int(end_frame_field.text())
-    except ValueError:
-        print(f"Error: Invalid frame values entered for clip {clip_index}. Please enter valid integers.")
-        return None, None
-
-    if start_frame > end_frame:
-        print(f"Error: Start frame ({start_frame}) cannot be greater than end frame ({end_frame}) for clip {clip_index}.")
-        return None, None
-
-    return start_frame, end_frame

@@ -95,4 +95,4 @@ def create_project_section(parent=None):
 
     add_new_project_btn.clicked.connect(open_add_project_window)
 
-    return layout
+    return layout, project_combo

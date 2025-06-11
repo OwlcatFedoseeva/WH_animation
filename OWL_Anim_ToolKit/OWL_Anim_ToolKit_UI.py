@@ -1,55 +1,95 @@
-import maya.cmds as cmds
-import sys
 import os
+from PySide2 import QtWidgets, QtCore
+import maya.cmds as cmds
+from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
+import importlib
+
+modules_to_reload = ['_UI._logo_section_UI', '_UI._project_section_UI',
+    '_UI._tabs_section_UI', '_UI._progress_section_UI',
+    '_UI._logger_section_UI', '_logic.utils']
+
+for mod_name in modules_to_reload:
+    mod = importlib.import_module(mod_name)
+    importlib.reload(mod)
+
+from _UI._logo_section_UI import create_logo_section
+from _UI._project_section_UI import create_project_section
+from _UI._tabs_section_UI import create_tabs_section
+from _UI._progress_section_UI import create_progress_section
+from _UI._logger_section_UI import create_logger_section
+from _logic.utils import clear_temp_files
+
+USERAPPDIR = cmds.internalVar(userAppDir=True)
+MODULE_DIRECTORY = os.path.join(USERAPPDIR, 'scripts', 'OWL_Anim_ToolKit')
+temp_dir = os.path.normpath(os.path.join(MODULE_DIRECTORY, "temp"))
+
+# Очищаем временные файлы
+clear_temp_files(temp_dir)
+class OWLAnimKitUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('OWL Animation Kit v1.3')
+        self.setObjectName("OWLAnimationKitID")
+        self.setMinimumSize(500, 860)
+        self.setMaximumSize(500, 860)
+        self.setWindowFlags(QtCore.Qt.Tool)
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setAlignment(QtCore.Qt.AlignTop)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+
+        try:
+            layout.addLayout(create_logo_section(MODULE_DIRECTORY))
+            layout.addWidget(self._divider())
+
+            project_section, self.project_combo = create_project_section(self)
+            layout.addLayout(project_section)
+            layout.addWidget(self._divider())
+
+            # 🛠️ Создаём логгер, но не добавляем в layout пока
+            logger_layout, self.logger_widget = create_logger_section(self)
+
+            # ✅ Теперь передаём self.logger_widget во вкладки
+            layout.addWidget(create_tabs_section(self))
+            layout.addWidget(self._divider())
+
+            self.progress_bar = create_progress_section(self)
+            layout.addWidget(self.progress_bar)
+            layout.addWidget(self._divider())
+
+            # 🔽 Только теперь добавляем логгер в самый низ
+            layout.addLayout(logger_layout)
+
+        except Exception as e:
+            cmds.warning(f"Error building UI: {e}")
 
 
-# Internal Modules
-import projectData
-import _common.block_logo as logo
-import _common.block_project_data as project_data
-
-def create_owl_anim_tool_kit_window():
+    def _divider(self):
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        return line
     
-    if cmds.window("OWLAnimationToolKitID", exists=True):
-        cmds.deleteUI("OWLAnimationToolKitID", window=True)
-    if cmds.windowPref("OWLAnimationToolKitID", exists=True):
-        cmds.windowPref("OWLAnimationToolKitID", remove=True)
-    
-    window = cmds.window("OWLAnimationToolKitID", title="OWL Animation Tool Kit 0.0.0")
-    
-    # LAYOUTS
-    main_layout = cmds.formLayout()
-    top_section_logo_layout = cmds.columnLayout(adjustableColumn=True, parent=main_layout)
-    top_project_set_section_layout = cmds.formLayout(parent=main_layout)
-    mid_section_layout = cmds.formLayout(parent=main_layout)
-    bottom_section_layout = cmds.formLayout(parent=main_layout)
-    
-    # TOP SECTION
-    logo.create_block_logo(top_section_logo_layout)
-    project_data.create_block_project(top_project_set_section_layout)
-    
-    # TAB SECTION
-    cmds.formLayout(main_layout, edit=True,
-        attachForm=[
-            (top_section_logo_layout, 'top', 0),
-            (top_section_logo_layout, 'left', 0),
-            (top_section_logo_layout, 'right', 0),
-            (top_project_set_section_layout, 'left', 0),
-            (top_project_set_section_layout, 'right', 0),
-            (mid_section_layout, 'left', 0),
-            (mid_section_layout, 'right', 0),
-            (bottom_section_layout, 'left', 0),
-            (bottom_section_layout, 'right', 0)
-        ],
-        attachControl=[
-            (top_project_set_section_layout, 'top', 0, top_section_logo_layout),
-            (mid_section_layout, 'top', 0, top_project_set_section_layout),
-            (bottom_section_layout, 'top', 0, mid_section_layout)
-        ]
-    )
-
-    cmds.showWindow(window)
+    def update_progress(self, value):
+        if hasattr(self, "progress_bar") and self.progress_bar:
+            self.progress_bar.setValue(value)
+            QtWidgets.QApplication.processEvents()  # обновление UI
 
 
-if __name__ == "__main__":
-    create_owl_anim_tool_kit_window()
+
+def main():
+    # Удаление старого UI, если он уже существует
+    for ui in ["OWLAnimationKitID"]:
+        if cmds.window(ui, exists=True):
+            cmds.deleteUI(ui, window=True)
+        if cmds.windowPref(ui, exists=True):
+            cmds.windowPref(ui, remove=True)
+
+    global anim_kit_ui
+    anim_kit_ui = OWLAnimKitUI()
+    anim_kit_ui.show()
+
+main()

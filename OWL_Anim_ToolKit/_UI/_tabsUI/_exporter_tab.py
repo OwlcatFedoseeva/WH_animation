@@ -1,11 +1,12 @@
 from PySide2 import QtWidgets, QtCore, QtGui
+from OWL_Anim_ToolKit._logic import exporter_logic  # ← это мы добавили
 import maya.cmds as cmds
 import os
 
-
 class AnimExportWidget(QtWidgets.QWidget):
-    def __init__(self, parent=None):
-        super(AnimExportWidget, self).__init__(parent)
+    def __init__(self, project_combo, parent=None):
+        super().__init__(parent)
+        self.project_combo = project_combo
         self.init_ui()
 
     def init_ui(self):
@@ -52,7 +53,7 @@ class AnimExportWidget(QtWidgets.QWidget):
         self.operation_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addLayout(self.operation_layout)
 
-        self.create_buttons('EXPORT THIS ANIMATION', self.export_current, 'Export currently opened animation.', self.operation_layout, is_default=True, size=(490, 40))
+        self.create_buttons('EXPORT THIS ANIMATION', lambda: exporter_logic.export_current(self), 'Export currently opened animation.', self.operation_layout, is_default=True, size=(490, 40))
         self.create_buttons('BATCH ANIMATION EXPORT', self.export_batch, 'Export many animations.', self.operation_layout, is_default=True, size=(490, 40))
 
         self.create_buttons('EXPORT CREATURE RIG TO PROJECT', self.export_batch, 'Export creature rig to project.', self.operation_layout, is_default=True, size=(490, 40))

@@ -1,20 +1,20 @@
 from PySide2 import QtWidgets
 from _logic import logging_process
 
-def create_logger_section(parent):
-    parent.log_display = QtWidgets.QTextEdit(parent)
-    parent.log_display.setReadOnly(True)
-    parent.log_display.setPlaceholderText("Log messages will appear here...")
+from PySide2 import QtWidgets
 
-    clear_log_btn = QtWidgets.QPushButton("Clear LOG")
-    export_log_btn = QtWidgets.QPushButton("Export LOG")
+class LoggerWidget(QtWidgets.QTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self.setMinimumHeight(100)
 
-    clear_log_btn.clicked.connect(logging_process.clear_log)
-    export_log_btn.clicked.connect(logging_process.export_log)
+    def append_log(self, message):
+        self.append(message)
+        QtWidgets.QApplication.processEvents()
 
-    logger_setting_layout = QtWidgets.QVBoxLayout()
-    logger_setting_layout.addWidget(parent.log_display)
-    logger_setting_layout.addWidget(clear_log_btn)
-    logger_setting_layout.addWidget(export_log_btn)
-
-    return logger_setting_layout
+def create_logger_section(parent=None):
+    logger_widget = LoggerWidget(parent)
+    layout = QtWidgets.QVBoxLayout()
+    layout.addWidget(logger_widget)
+    return layout, logger_widget

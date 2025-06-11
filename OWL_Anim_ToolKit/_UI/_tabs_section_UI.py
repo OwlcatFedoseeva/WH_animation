@@ -36,10 +36,13 @@ def create_tabs_section(self):
     clear_anim_layout = QtWidgets.QVBoxLayout(clean_anim_tab)
 
     # Создание UI экспортера анимации и добавление его в лэйаут
-    anim_export_widget = AnimExportWidget()
+    anim_export_widget = AnimExportWidget(self.project_combo)
     export_layout.addWidget(anim_export_widget)  # Добавляем его в лэйаут вкладки
 
-    anim_convert_widget = AnimationConverterWidget(convert_tab)
+    anim_convert_widget = AnimationConverterWidget(parent=convert_tab,
+                                                    update_progress=self.update_progress,
+                                                    logger_widget=self.logger_widget
+                                                )
     convert_layout.addWidget(anim_convert_widget)
 
     clear_anim_widget = CleanUnwantedAnimWidget(clean_anim_tab)
