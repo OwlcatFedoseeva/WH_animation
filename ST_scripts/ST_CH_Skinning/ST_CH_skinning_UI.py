@@ -36,7 +36,7 @@ class BodyPartSkinnerUI(MayaQWidgetDockableMixin, QtWidgets.QWidget):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("BodyPart skinner v 2.0")
+        self.setWindowTitle("BodyPart skinner v 2.1")
         self.setObjectName("CHBodyPartSkinnerID")
         #self.setGeometry(300, 300, 250, 400)
 
