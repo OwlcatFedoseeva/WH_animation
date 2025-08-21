@@ -3,7 +3,6 @@
 //Last modified: Mon, Aug 11, 2025 10:14:46 AM
 //Codeset: 1251
 requires maya "2023";
-requires -nodeType "ngst2SkinLayerData" -dataType "ngst2SkinLayerDataStorage" "ngSkinTools2" "2.1.6";
 requires "stereoCamera" "10.0";
 requires -nodeType "aiOptions" -nodeType "aiAOVDriver" -nodeType "aiAOVFilter" "mtoa" "5.2.1.1";
 requires "Mayatomr" "2012.0m - 3.9.1.36 ";
