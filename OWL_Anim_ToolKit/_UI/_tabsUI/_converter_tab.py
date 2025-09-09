@@ -6,8 +6,14 @@ import json
 import maya.cmds as cmds
 import importlib
 import OWL_Anim_ToolKit._logic.bake_correct_export_anim as anim_utils
-importlib.reload(anim_utils)
+import OWL_Anim_ToolKit._logic.animation_convertion as anim_utils_test
+import _logic.logging_process as logging_process
 
+
+importlib.reload(anim_utils)
+importlib.reload(anim_utils_test)
+importlib.reload(logging_process)
+from _logic.logging_process import UILogger
 
 class AnimationConverterWidget(QtWidgets.QWidget):
     def __init__(self, parent=None, update_progress=None, logger_widget=None):
@@ -19,7 +25,8 @@ class AnimationConverterWidget(QtWidgets.QWidget):
         self.load_template_metadata()
         QtCore.QTimer.singleShot(0, self.load_user_settings)  # Moved here!
         self.update_progress = update_progress or (lambda x: None)
-        self.logger_widget = logger_widget
+        self.logger = UILogger(widget=logger_widget)
+        self.logger.log("🟢 Логгер успешно подключён!", color="green")
 
 
     def init_ui(self):
@@ -56,28 +63,30 @@ class AnimationConverterWidget(QtWidgets.QWidget):
 
         self.gender_field = QtWidgets.QComboBox()
         anim_layout.addRow("Gender:", self.gender_field)
-
+        
 
         # Buttons
         btn_layout = QtWidgets.QVBoxLayout()
         btn_layout.setAlignment(QtCore.Qt.AlignHCenter)
+        
+        btn_layout.addWidget(self._divider())
 
-        self.convert_current_ma_anim_btn = QtWidgets.QPushButton("CONVERT CURRENT MAYA FILE")
-        self.convert_current_ma_anim_btn.setFixedSize(490, 40)
-        self.convert_current_ma_anim_btn.clicked.connect(self.handle_convert_current_animation)
-        btn_layout.addWidget(self.convert_current_ma_anim_btn)
-
-        self.convert_current_fbx_anim_btn = QtWidgets.QPushButton("CONVERT CURRENT .FBX FILE")
+        self.convert_current_fbx_anim_btn = QtWidgets.QPushButton("CONVERT CURRENT FBX FILE")
         self.convert_current_fbx_anim_btn.setFixedSize(490, 40)
         self.convert_current_fbx_anim_btn.clicked.connect(self.handle_convert_current_fbx_animation)
         btn_layout.addWidget(self.convert_current_fbx_anim_btn)
 
-        self.convert_batch_anim_btn = QtWidgets.QPushButton("CONVERT BATCH")
+        btn_layout.addWidget(self._divider())
+
+
+        self.convert_batch_anim_btn = QtWidgets.QPushButton("CONVERT BATCH FBX FILES")
         self.convert_batch_anim_btn.setFixedSize(490, 40)
-        self.convert_batch_anim_btn.clicked.connect(self.handle_convert_batch)
+        self.convert_batch_anim_btn.clicked.connect(self.handle_convert_batch_fbx)
         btn_layout.addWidget(self.convert_batch_anim_btn)
 
-        self.save_convert_skeleton_btn = QtWidgets.QPushButton("SAVE CONVERT SKELETON")
+        btn_layout.addWidget(self._divider())
+
+        self.save_convert_skeleton_btn = QtWidgets.QPushButton("CREATE TEMPLATE SKELETON")
         self.save_convert_skeleton_btn.setFixedSize(490, 40)
         btn_layout.addWidget(self.save_convert_skeleton_btn)
 
@@ -90,23 +99,23 @@ class AnimationConverterWidget(QtWidgets.QWidget):
         self.race_field.currentIndexChanged.connect(self.save_user_settings)
         self.gender_field.currentIndexChanged.connect(self.save_user_settings)
 
-        
-    def log(self, message):
-        if self.logger_widget:
-            self.logger_widget.append(message)
-        print(message)
+    def _divider(self):
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        return line
 
     def load_projects(self):
         user_app_dir = cmds.internalVar(userAppDir=True)
         project_data_path = os.path.join(user_app_dir, "scripts", "OWL_Anim_ToolKit", "project_data")
 
         if not os.path.exists(project_data_path):
-            print("[ConverterWidget] Project data folder not found:", project_data_path)
+            self.logger.log("[ConverterWidget] Project data folder not found:", project_data_path)
             return
 
         json_files = [f for f in os.listdir(project_data_path) if f.endswith(".json")]
         if not json_files:
-            print("[ConverterWidget] No project files found.")
+            self.logger.log("[ConverterWidget] No project files found.")
             return
 
         for filename in json_files:
@@ -117,7 +126,7 @@ class AnimationConverterWidget(QtWidgets.QWidget):
                     project_key = os.path.splitext(filename)[0]
                     self.project_data[project_key] = data
             except Exception as e:
-                print(f"[ConverterWidget] Failed to load {filename}: {e}")
+                self.logger.log(f"[ConverterWidget] Failed to load {filename}: {e}")
 
         if self.project_data:
             self.source_project_combobox.addItems(self.project_data.keys())
@@ -131,7 +140,7 @@ class AnimationConverterWidget(QtWidgets.QWidget):
         base_path = os.path.join(user_app_dir, "scripts", "OWL_Anim_ToolKit", "template_skeletons")
 
         if not os.path.exists(base_path):
-            print("[ConverterWidget] Template skeletons folder not found:", base_path)
+            self.logger.log("[ConverterWidget] Template skeletons folder not found:", base_path)
             return
 
         files = [f for f in os.listdir(base_path) if f.endswith(".ma")]
@@ -144,7 +153,7 @@ class AnimationConverterWidget(QtWidgets.QWidget):
             name = os.path.splitext(f)[0]
             parts = name.split("_")
             if len(parts) != 4:
-                print(f"[ConverterWidget] Invalid template name format: {f}")
+                self.logger.log(f"[ConverterWidget] Invalid template name format: {f}")
                 continue
             source, target, race, gender = parts
             source_set.add(source)
@@ -167,165 +176,99 @@ class AnimationConverterWidget(QtWidgets.QWidget):
         self.race_field.setCurrentText("Human")
         self.gender_field.setCurrentText("M")
 
-    def handle_export_animation(self):
-        source_proj = self.source_project_combobox.currentText()
-        target_proj = self.target_project_combobox.currentText()
-        race = self.race_field.currentText()
-        gender = self.gender_field.currentText()
-        #self.log(source_proj + '_' + target_proj + '_' + race + '_' + gender + '.ma')
 
-        if not (source_proj and target_proj and race and gender):
-            QtWidgets.QMessageBox.warning(self, "Error", "Please select all required fields.")
-            return
+    def handle_convert_current_fbx_animation(self):
+        if self.logger:
+            self.logger.log("🔄 Запущена конвертация текущей анимации...", color="blue")
 
-        try:
-            json_path = anim_utils.prepare_anim_data_for_transfer(
-                source_project=source_proj,
-                target_project=target_proj,
-                race=race,
-                gender=gender
-            )
-            QtWidgets.QMessageBox.information(self, "Export Complete", f"Animation exported to:\n{json_path}")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Export Error", str(e))
-
-    def handle_import_animation(self):
         race = self.race_field.currentText()
         gender = self.gender_field.currentText()
         source_proj = self.source_project_combobox.currentText()
         target_proj = self.target_project_combobox.currentText()
-
-        if not (source_proj and target_proj and race and gender):
-            QtWidgets.QMessageBox.warning(self, "Error", "Please select all required fields.")
-            return
-
-        try:
-            template_path = anim_utils.get_template_path(source_proj, target_proj, race, gender)
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Template Error", f"Failed to build template path: {e}")
-            return
-
-        if not os.path.exists(template_path):
-            QtWidgets.QMessageBox.critical(self, "Template Missing", f"Template not found:\n{template_path}")
-            return
-
-        module_dir = os.path.dirname(anim_utils.__file__)
-        temp_path = os.path.normpath(os.path.join(module_dir, "..", "..", "temp"))
-        json_name = f"{source_proj}_{target_proj}_{race}_{gender}.json"
-        json_path = os.path.join(temp_path, json_name)
-
-        if not os.path.exists(json_path):
-            QtWidgets.QMessageBox.critical(self, "JSON Missing", f"JSON not found:\n{json_path}")
-            return
-
-        try:
-            anim_utils.load_template_and_apply_animation(source_proj, target_proj, race, gender)
-            QtWidgets.QMessageBox.information(self, "Import Complete", "Animation imported successfully.")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", str(e))
-
-    def handle_convert_current_animation(self):
-        race = self.race_field.currentText()
-        gender = self.gender_field.currentText()
-        source_proj = self.source_project_combobox.currentText()
-        target_proj = self.target_project_combobox.currentText()
-        #self.log("🔄 Запущена конвертация текущей анимации...")
-        if not (source_proj and target_proj and race and gender):
-            QtWidgets.QMessageBox.warning(self, "Error", "Please select all required fields.")
-            return
 
         try:
             self.update_progress(5)
-            json_path = anim_utils.prepare_anim_data_for_transfer(
+
+            anim_utils_test.convert_process(
+                race=race,
+                gender=gender,
                 source_project=source_proj,
                 target_project=target_proj,
-                race=race,
-                gender=gender
+                logger=self.logger 
             )
-            self.update_progress(60)
 
-            anim_utils.load_template_and_apply_animation(source_proj, target_proj, race, gender)
-            self.update_progress(95)
-
-            QtWidgets.QMessageBox.information(self, "Conversion Complete", "Animation converted and applied.")
             self.update_progress(100)
+            cmds.confirmDialog(title='Успех', message='Конвертация завершена.', button=['OK'])
+
+            if self.logger:
+                self.logger.log("✅ Конвертация завершена успешно.", color="green")
+
         except Exception as e:
-            self.update_progress(0)
-            QtWidgets.QMessageBox.critical(self, "Conversion Error", str(e))
+            import traceback
+            traceback.print_exc()
+            cmds.confirmDialog(title='Ошибка', message=f"Произошла ошибка: {e}", button=['OK'])
 
-        self.save_user_settings()
-        #self.log("✅ Конвертация завершена.")
+            if self.logger:
+                self.logger.log(f"❌ Ошибка при конвертации FBX: {e}", color="red")
 
-    def handle_convert_current_fbx_animation(self):
+
+
+    def handle_convert_batch_fbx(self):
+        folder = cmds.fileDialog2(fileMode=3, dialogStyle=2, caption="Выбери папку с .fbx файлами")
+        if not folder:
+            return
+
+        folder_path = folder[0]
+        fbx_files = [f for f in os.listdir(folder_path) if f.lower().endswith(".fbx")]
+
+        if not fbx_files:
+            QtWidgets.QMessageBox.information(self, "Нет файлов", "В выбранной папке нет .fbx файлов.")
+            return
+
         race = self.race_field.currentText()
         gender = self.gender_field.currentText()
         source_proj = self.source_project_combobox.currentText()
         target_proj = self.target_project_combobox.currentText()
-
-        #self.log("🔄 Запущена конвертация текущего FBX файла...")
 
         if not (source_proj and target_proj and race and gender):
             QtWidgets.QMessageBox.warning(self, "Ошибка", "Пожалуйста, выберите все поля.")
             return
 
-        try:
-            self.update_progress(5)
-            anim_utils.convert_from_existing_fbx(
-                race=race,
-                gender=gender,
-                source_project=source_proj,
-                target_project=target_proj
-            )
-            self.update_progress(100)
-            #self.log("✅ Конвертация FBX завершена.")
-        except Exception as e:
-            self.update_progress(0)
-            #self.log(f"❌ Ошибка при конвертации FBX: {str(e)}")
-            QtWidgets.QMessageBox.critical(self, "FBX Error", str(e))
+        total = len(fbx_files)
 
-    def handle_convert_batch(self):
-        folder = cmds.fileDialog2(fileMode=3, dialogStyle=2, caption="Выбери папку с .ma файлами")
-        if not folder:
-            return
-
-        folder_path = folder[0]
-        ma_files = [f for f in os.listdir(folder_path) if f.endswith(".ma")]
-
-        if not ma_files:
-            QtWidgets.QMessageBox.information(self, "Нет файлов", "В выбранной папке нет .ma файлов.")
-            return
-
-        race = self.race_field.currentText()
-        gender = self.gender_field.currentText()
-        source_proj = self.source_project_combobox.currentText()
-        target_proj = self.target_project_combobox.currentText()
-
-        if not (source_proj and target_proj and race and gender):
-            QtWidgets.QMessageBox.warning(self, "Error", "Please select all required fields.")
-            return
-
-        total = len(ma_files)
-        for i, file_name in enumerate(ma_files):
+        for i, file_name in enumerate(fbx_files):
             file_path = os.path.join(folder_path, file_name)
             try:
                 self.update_progress(int((i / total) * 100))
-                print(f"[{i+1}/{total}] Обрабатываем: {file_name}")
+
+                if self.logger:
+                    self.logger.log(f"[{i+1}/{total}] 📦 Обрабатываем: {file_name}", color="blue")
+
                 cmds.file(file_path, open=True, force=True)
 
-                # 🔁 Вызов той же логики, что и при одиночной конверсии
-                anim_utils.prepare_anim_data_for_transfer(
-                    source_project=source_proj,
-                    target_project=target_proj,
-                    race=race,
-                    gender=gender
-                )
-                anim_utils.load_template_and_apply_animation(source_proj, target_proj, race, gender)
+                for ns in cmds.namespaceInfo(listOnlyNamespaces=True):
+                    if ns not in ('UI', 'shared'):
+                        try:
+                            cmds.namespace(removeNamespace=ns, mergeNamespaceWithRoot=True)
+                        except:
+                            pass
+
+                if not cmds.objExists("Pelvis"):
+                    raise RuntimeError("❌ Кость 'Pelvis' не найдена в сцене.")
+
+                anim_utils_test.convert_process(race, gender, source_proj, target_proj, logger=self.logger)
+
+                if self.logger:
+                    self.logger.log("🟢 Конвертация завершена успешно.", color="green")
+                
             except Exception as e:
-                print(f"❌ Ошибка при обработке {file_name}: {e}")
+                if self.logger:
+                    self.logger.log(f"❌ Ошибка при обработке {file_name}: {e}", color="red")
                 continue
 
         self.update_progress(100)
-        QtWidgets.QMessageBox.information(self, "Batch Complete", f"✅ Обработано файлов: {total}")
+        cmds.confirmDialog(title='Успех', message='Конвертация завершена.', button=['OK'])
+
 
     def save_user_settings(self):
         settings = {
@@ -338,7 +281,7 @@ class AnimationConverterWidget(QtWidgets.QWidget):
             with open(self.settings_path, "w") as f:
                 json.dump(settings, f, indent=4)
         except Exception as e:
-            print("[ConverterWidget] Failed to save settings:", e)
+            self.logger.log("[ConverterWidget] Failed to save settings:", e)
 
 
     def load_user_settings(self):
@@ -358,12 +301,12 @@ class AnimationConverterWidget(QtWidgets.QWidget):
                 settings = json.load(f)
 
             for key, default_value in defaults.items():
-                if key not in settings or not settings[key]:  # empty string check added
+                if key not in settings or not settings[key]:  
                     settings[key] = default_value
 
             self.apply_user_settings(settings)
         except Exception as e:
-            print("[ConverterWidget] Failed to load settings:", e)
+            self.logger.log(f"❌ [ConverterWidget] Failed to load settings:", e)
             self.apply_user_settings(defaults)
 
 

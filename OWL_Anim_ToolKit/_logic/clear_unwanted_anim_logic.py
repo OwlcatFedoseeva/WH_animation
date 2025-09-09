@@ -67,12 +67,34 @@ class CleanAnimLogic:
         else:
             export_dir = self.create_directory(self.new_directory)
 
-        cmds.loadPlugin("fbxmaya", quiet=True)
-        cmds.select('ParentForExportDelete', hierarchy=True)
+        # Проверка экспортируемого локатора
+        top_loc_list = ['ParentForExportDelete', 'locator1', 'Position']
+        top_loc = None
+        for name in top_loc_list:
+            if cmds.objExists(name):
+                top_loc = name
+                break
+
+        if not top_loc:
+            raise RuntimeError("❌ Не найден ни один экспортируемый объект.")
+
+        cmds.select(top_loc, hierarchy=True)
+
+        # Подготовка путей
         export_path = os.path.join(export_dir, file_name + '.fbx')
-        mel.eval(f'FBXLoadExportPresetFile -f "{self.preset_path}"')
-        mel.eval(f'FBXExport -s -f "{export_path}" -force -options')
-        print("Exported:", export_path)
+        export_path_fixed = export_path.replace("\\", "/")
+        preset_path_fixed = self.preset_path.replace("\\", "/")
+
+        # Загрузка пресета и экспорт
+        if not os.path.exists(self.preset_path):
+            raise RuntimeError(f"❌ Preset not found: {self.preset_path}")
+
+        cmds.loadPlugin("fbxmaya", quiet=True)
+        mel.eval(f'FBXLoadExportPresetFile -f "{preset_path_fixed}"')
+        mel.eval(f'FBXExport -f "{export_path_fixed}" -s')
+
+        print("[✅] Exported:", export_path_fixed)
+
 
     def batch_process(self, folder_path, save_to_origin):
         self.new_scene()

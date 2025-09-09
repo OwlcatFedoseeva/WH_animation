@@ -3,37 +3,34 @@ import maya.cmds as cmds
 from PySide2 import QtCore
 from .project_loader import get_project_data
 from .bake_anim_utils import bake_animation_for_project
+from _logic.logging_process import UILogger
+import OWL_Anim_ToolKit._logic.export_dispatcher as export_dispatcher
 
-def export_current(ui):
-    print("EXPORTING CURRENT FILE")
-
-    project = ui.project_combo.currentText()
+def export_current(ui, logger, update_progress=None):
+    """
+    Запускает экспорт анимации на основе выбранного проекта и расы.
+    Получает значения из UI и передаёт в маршрутизатор экспорта.
+    """
+    if logger is None:
+        logger = UILogger()
     try:
-        project_data = get_project_data(project)
+        # Получаем выбранные проект и расу из комбобоксов
+        project = ui.combobox_project.currentText()
+        race = ui.combobox_race.currentText().lower()
+
+        # Импорт диспетчера экспорта и запуск соответствующего пайплайна
+        if update_progress:
+            update_progress(0)
+        export_dispatcher.dispatch_export(project=project, race=race, logger=logger)
+        
+        if update_progress:
+            update_progress(100)
+
+    except AttributeError as e:
+        raise RuntimeError(f"[Exporter] ❌ Ошибка доступа к элементам UI: {e}")
     except Exception as e:
-        print(f"[ERROR] Could not load project data: {e}")
-        return
+        raise RuntimeError(f"[Exporter] ❌ Не удалось запустить экспорт: {e}")
 
-    export_dir = project_data.get("export_path")
-    if not export_dir:
-        print(f"[ERROR] Project config missing 'export_path'")
-        return
-
-    char_type = ui.combobox_race.currentText()
-    supported_char_types = {"HUMAN", "ELDAR", "SPACEMARINE", "KROOT", "OGRYN"}
-
-    if char_type not in supported_char_types:
-        print(f"[ERROR] Unsupported character type: {char_type}")
-        return
-
-    if ui.checkbox_export_options.isChecked():
-        frame_ranges = create_frame_range_comboboxes(ui)
-        for clip_index, (start_frame, end_frame) in enumerate(frame_ranges):
-            export_animation(ui, start_frame, end_frame, project, export_dir, clip_index)
-    else:
-        start_frame = cmds.playbackOptions(q=True, minTime=True)
-        end_frame = cmds.playbackOptions(q=True, maxTime=True)
-        export_animation(ui, start_frame, end_frame, project, export_dir)
 
 def export_animation(ui, start_frame, end_frame, project, export_dir, clip_index=None):
     bake_animation_for_project(project, start_frame, end_frame)

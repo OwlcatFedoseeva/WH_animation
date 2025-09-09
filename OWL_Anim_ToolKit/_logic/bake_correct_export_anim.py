@@ -7,25 +7,20 @@ import OWL_Anim_ToolKit._logic.bake_anim_utils as bake_anim_utils
 import OWL_Anim_ToolKit._logic.clear_unwanted_anim_logic as CleanAnimLogic
 import OWL_Anim_ToolKit._logic.file_handling_utils as file_handling_utils
 import OWL_Anim_ToolKit._logic.scale_anim as scale_anim_utils
-
+import _logic.logging_process as logging_process
 
 importlib.reload(bake_anim_utils)
 importlib.reload(CleanAnimLogic)
 importlib.reload(file_handling_utils)
-global_logger = None
+importlib.reload(logging_process)
 
-def log(msg):
-    global global_logger
-    if global_logger:
-        global_logger(msg)
-    else:
-        print(msg)
+from _logic.logging_process import UILogger
 
+def save_anim_metadata(json_path, start_frame, end_frame, fps, bones_HB2, logger=None):
 
-file_handling_utils.set_logger(log)
-bake_anim_utils.set_logger(log)
+    if logger is None:
+        logger = UILogger()
 
-def save_anim_metadata(json_path, start_frame, end_frame, fps, bones_HB2):
     anim_data = {
         "start_frame": start_frame,
         "end_frame": end_frame,
@@ -35,13 +30,16 @@ def save_anim_metadata(json_path, start_frame, end_frame, fps, bones_HB2):
     try:
         with open(json_path, "w") as f:
             json.dump(anim_data, f, indent=4)
-        log(f"📄 JSON saved: {json_path}")
+        logger.log(f"📄 JSON saved: {json_path}")
     except Exception as e:
         cmds.error(f"❌ Error saving JSON: {e}")
 
 
 def scale_translate_keys(joint_list, scale_factor=100.0):
     '''Умножает ключи translateX/Y/Z на указанный коэффициент во всех переданных костях.'''
+    if logger is None:
+        logger = UILogger()
+
     for joint in joint_list:
         for attr in ['translateX', 'translateY', 'translateZ']:
             keyframes = cmds.keyframe(joint, attribute=attr, query=True)
@@ -51,7 +49,11 @@ def scale_translate_keys(joint_list, scale_factor=100.0):
                     cmds.setKeyframe(joint, time=frame, attribute=attr, value=val * scale_factor)
 
 
-def export_animation_to_json(joint_list, start_frame, end_frame, fps, output_path):
+def export_animation_to_json(joint_list, start_frame, end_frame, fps, output_path, logger=None):
+
+    if logger is None:
+        logger = UILogger()
+
     data = {
         "fps": fps,
         "start_frame": start_frame,
@@ -74,14 +76,18 @@ def export_animation_to_json(joint_list, start_frame, end_frame, fps, output_pat
 
     with open(output_path, 'w') as f:
         json.dump(data, f, indent=4)
-    log(f"✅ Экспортировано в JSON: {output_path}")
+    logger.log(f"✅ Экспортировано в JSON: {output_path}")
 
-def export_animation_to_fbx(joint_list, start_frame, end_frame, fbx_path):
+def export_animation_to_fbx(joint_list, start_frame, end_frame, fbx_path, logger=None):
+
+    if logger is None:
+        logger = UILogger()
+
     # Экспорт FBX
     cmds.select(joint_list, hierarchy=True)
     try:
         cmds.file(fbx_path, force=True, options="v=0", typ="FBX export", pr=True, es=True)
-        log(f"🎞 Анимация экспортирована в FBX: {fbx_path}")
+        logger.log(f"🎞 Анимация экспортирована в FBX: {fbx_path}")
     except Exception as e:
         cmds.error(f"❌ Ошибка при экспорте FBX: {e}")
 
@@ -89,9 +95,10 @@ def prepare_anim_data_for_transfer(source_project, target_project, race, gender,
     '''
     Подготовка анимации: bake, масштаб, чистка, экспорт JSON (метаданных), экспорт FBX.
     '''
-    
-    global global_logger
-    global_logger = logger
+
+    if logger is None:
+        logger = UILogger()
+
     scene_path = cmds.file(q=True, sn=True)
     if not scene_path:
         cmds.error("Сначала сохраните текущую сцену!")
@@ -137,15 +144,19 @@ def prepare_anim_data_for_transfer(source_project, target_project, race, gender,
     }
     with open(json_path, "w") as f:
         json.dump(anim_info, f, indent=4)
-    log(f"📄 Экспортированы метаданные: {json_path}")
+    logger.log(f"📄 Экспортированы метаданные: {json_path}")
 
     # Экспорт FBX
     export_animation_to_fbx("Position", start, end, fbx_path)
     return json_path, fbx_path, scene_path, scene_name
 
 
-def setup_scene_from_json(json_path):
+def setup_scene_from_json(json_path, logger=None):
     '''Настраивает fps и диапазон кадров на основе JSON файла.'''
+
+    if logger is None:
+        logger = UILogger()
+
     if not os.path.exists(json_path):
         cmds.error(f"❌ Файл не найден: {json_path}")
 
@@ -169,13 +180,17 @@ def setup_scene_from_json(json_path):
     cmds.playbackOptions(min=start, max=end)
     cmds.playbackOptions(animationStartTime=start, animationEndTime=end)
 
-    log(f"🎬 Сцена настроена: fps = {fps}, кадры {start} - {end}")
+    logger.log(f"🎬 Сцена настроена: fps = {fps}, кадры {start} - {end}")
 
     return start, end
 
 
-def import_animation_from_json(json_path):
+def import_animation_from_json(json_path, logger=None):
     '''Импортирует анимацию из JSON-файла и применяет ключи к соответствующим костям.'''
+
+    if logger is None:
+        logger = UILogger()
+
     if not os.path.exists(json_path):
         cmds.error(f"❌ Файл не найден: {json_path}")
 
@@ -185,7 +200,7 @@ def import_animation_from_json(json_path):
     joints_data = data.get("joints", {})
     for joint_name, attrs in joints_data.items():
         if not cmds.objExists(joint_name):
-            log(f"⚠️ Кость '{joint_name}' не найдена в сцене, пропускаем.")
+            logger.log(f"⚠️ Кость '{joint_name}' не найдена в сцене, пропускаем.")
             continue
 
         for attr, frames in attrs.items():
@@ -195,23 +210,31 @@ def import_animation_from_json(json_path):
                 try:
                     cmds.setKeyframe(joint_name, time=frame, attribute=attr, value=value)
                 except Exception as e:
-                    log(f"❌ Ошибка установки ключа: {joint_name}.{attr} на кадре {frame}: {e}")
-    log("✅ Анимация из JSON успешно применена.")
+                    logger.log(f"❌ Ошибка установки ключа: {joint_name}.{attr} на кадре {frame}: {e}")
+    logger.log("✅ Анимация из JSON успешно применена.")
 
-def get_template_path(source, target, race, gender):
+def get_template_path(source, target, race, gender, logger=None):
+
+    if logger is None:
+        logger = UILogger()
+
     USERAPPDIR = cmds.internalVar(userAppDir=True)
     module_dir = os.path.join(USERAPPDIR, 'scripts', 'OWL_Anim_ToolKit')
     filename = f"{source}_{target}_{race}_{gender}.ma"
-    log(module_dir)
+    logger.log(module_dir)
     path = os.path.normpath(os.path.join(module_dir, "template_skeletons", filename))
-    log(path)
+    logger.log(path)
     return path
 
-def load_template_and_apply_animation(source, target, race, gender):
+def load_template_and_apply_animation(source, target, race, gender, logger=None):
     """
     Создаёт новую сцену, импортирует шаблонный .ma файл, применяет к нему временный FBX,
     запекает ключи и экспортирует итоговый результат рядом с исходным файлом.
     """
+
+    if logger is None:
+        logger = UILogger()
+
     template_path = get_template_path(source, target, race, gender)
     USERAPPDIR = cmds.internalVar(userAppDir=True)
     temp_dir = os.path.normpath(os.path.join(USERAPPDIR, "scripts", "OWL_Anim_ToolKit", "temp"))
@@ -233,11 +256,11 @@ def load_template_and_apply_animation(source, target, race, gender):
 
     # Создание новой сцены
     cmds.file(new=True, force=True)
-    log("📄 Создана новая сцена.")
+    logger.log("📄 Создана новая сцена.")
 
     try:
         cmds.file(template_path, i=True, ignoreVersion=True, pr=True)
-        log(f"📦 Импортирован шаблон: {template_path}")
+        logger.log(f"📦 Импортирован шаблон: {template_path}")
     except Exception as e:
         cmds.error(f"❌ Ошибка при импорте шаблона: {e}")
 
@@ -245,7 +268,7 @@ def load_template_and_apply_animation(source, target, race, gender):
 
     try:
         cmds.file(fbx_path, i=True, type="FBX", ignoreVersion=True, pr=True)
-        log(f"🎞 Импортирована временная анимация: {fbx_path}")
+        logger.log(f"🎞 Импортирована временная анимация: {fbx_path}")
     except Exception as e:
         cmds.error(f"❌ Ошибка при импорте FBX: {e}")
 
@@ -258,13 +281,13 @@ def load_template_and_apply_animation(source, target, race, gender):
 
     for o in todel:
         if cmds.objExists(o):
-            log("Deleteing: " + o)
+            logger.log("Deleteing: " + o)
             cmds.delete(o)
 
         else:
             continue
 
-    log("✅ Ключи успешно запеканы.")
+    logger.log("✅ Ключи успешно запеканы.")
 
     file_handling_utils.remove_namespaces()
     file_handling_utils.delete_empty_display_layers()
@@ -275,20 +298,15 @@ def load_template_and_apply_animation(source, target, race, gender):
     cmds.select("Position", hierarchy=True)
     try:
         cmds.file(export_path, force=True, options="v=0", typ="FBX export", pr=True, es=True)
-        log(f"✅ Финальная анимация экспортирована: {export_path}")
+        logger.log(f"✅ Финальная анимация экспортирована: {export_path}")
     except Exception as e:
         cmds.error(f"❌ Ошибка при экспорте финального FBX: {e}")
 
-    log("✅ Анимация успешно применена к шаблону.")
+    logger.log("✅ Анимация успешно применена к шаблону.")
 
 def convert_from_existing_fbx(race, gender, source_project, target_project, logger=None):
-    global global_logger
-    if logger:
-        global_logger = logger
-    else:
-        global_logger = None
-
-
+    if logger is None:
+        logger = UILogger()
     scene_path = cmds.file(q=True, sn=True)
     if not scene_path:
         cmds.error("Сначала сохраните текущую сцену!")
@@ -323,7 +341,7 @@ def convert_from_existing_fbx(race, gender, source_project, target_project, logg
     }
     with open(json_path, "w") as f:
         json.dump(anim_info, f, indent=4)
-    log(f"\U0001F4C4 Экспортированы метаданные: {json_path}")
+    logger.log(f"\U0001F4C4 Экспортированы метаданные: {json_path}")
 
     export_animation_to_fbx("Position", start, end, fbx_path)
 

@@ -13,7 +13,6 @@ for mod_name in modules_to_reload:
     importlib.reload(mod)
 
 from _UI._logo_section_UI import create_logo_section
-from _UI._project_section_UI import create_project_section
 from _UI._tabs_section_UI import create_tabs_section
 from _UI._progress_section_UI import create_progress_section
 from _UI._logger_section_UI import create_logger_section
@@ -28,7 +27,7 @@ clear_temp_files(temp_dir)
 class OWLAnimKitUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('OWL Animation Kit v1.3')
+        self.setWindowTitle('OWL Animation Kit v1.7')
         self.setObjectName("OWLAnimationKitID")
         self.setMinimumSize(500, 860)
         self.setMaximumSize(500, 860)
@@ -45,15 +44,13 @@ class OWLAnimKitUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
             layout.addLayout(create_logo_section(MODULE_DIRECTORY))
             layout.addWidget(self._divider())
 
-            project_section, self.project_combo = create_project_section(self)
-            layout.addLayout(project_section)
-            layout.addWidget(self._divider())
 
             # 🛠️ Создаём логгер, но не добавляем в layout пока
             logger_layout, self.logger_widget = create_logger_section(self)
 
             # ✅ Теперь передаём self.logger_widget во вкладки
-            layout.addWidget(create_tabs_section(self))
+            #layout.addWidget(create_tabs_section(self))
+            layout.addWidget(create_tabs_section(self, logger_widget=self.logger_widget))
             layout.addWidget(self._divider())
 
             self.progress_bar = create_progress_section(self)

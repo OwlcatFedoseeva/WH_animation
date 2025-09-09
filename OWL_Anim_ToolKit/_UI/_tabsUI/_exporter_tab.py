@@ -1,12 +1,42 @@
 from PySide2 import QtWidgets, QtCore, QtGui
-from OWL_Anim_ToolKit._logic import exporter_logic  # ← это мы добавили
+import importlib
 import maya.cmds as cmds
 import os
+import json
+import OWL_Anim_ToolKit._logic.exporter_logic as exporter_logic
+import OWL_Anim_ToolKit._logic.animation_bake_wh1 as wh1_anim_bake_export
+import OWL_Anim_ToolKit._logic.bake_correct_export_anim as anim_utils
+import OWL_Anim_ToolKit._logic.animation_convertion as anim_utils_test
+import OWL_Anim_ToolKit._logic.logging_process as logging_process
+from OWL_Anim_ToolKit._logic.animation_bake_wh1 import PROJECT_DATA_DIR 
+import OWL_Anim_ToolKit._logic.animation_bake_creature as creature_anim_export
+
+import  OWL_Anim_ToolKit._logic.export_dispatcher as export_dispatcher
+
+
+modules_to_reload = [
+    'OWL_Anim_ToolKit._logic.exporter_logic',
+    'OWL_Anim_ToolKit._logic.animation_bake_wh1',
+    'OWL_Anim_ToolKit._logic.bake_correct_export_anim',
+    'OWL_Anim_ToolKit._logic.animation_convertion',
+    'OWL_Anim_ToolKit._logic.logging_process',
+    'OWL_Anim_ToolKit._logic.export_dispatcher',
+    'OWL_Anim_ToolKit._logic.animation_bake_creature'
+]
+
+for mod_name in modules_to_reload:
+    mod = importlib.import_module(mod_name)
+    importlib.reload(mod)
+
+from _logic.logging_process import UILogger
 
 class AnimExportWidget(QtWidgets.QWidget):
-    def __init__(self, project_combo, parent=None):
+    def __init__(self, parent=None, logger_widget=None, update_progress=None):
         super().__init__(parent)
-        self.project_combo = project_combo
+        self.projects_data = self.load_projects_data()
+        self.update_progress = update_progress
+        self.logger = UILogger(widget=logger_widget)
+        self.logger.log("🟢 Логгер успешно подключён!", color="green")
         self.init_ui()
 
     def init_ui(self):
@@ -31,8 +61,11 @@ class AnimExportWidget(QtWidgets.QWidget):
         self.set_char_layout = QtWidgets.QHBoxLayout()
         self.main_layout.addLayout(self.set_char_layout)
 
-        self.title_label_B = QtWidgets.QLabel("SET CHARACTER:")
+        self.title_label_B = QtWidgets.QLabel("SET PROJECT:")
         self.set_char_layout.addWidget(self.title_label_B)
+        self.set_project_combobox()
+        self.title_label_C = QtWidgets.QLabel("SET CHARACTER:")
+        self.set_char_layout.addWidget(self.title_label_C)
         self.set_char_type_combobox()
 
     def create_options_layout(self):
@@ -48,15 +81,29 @@ class AnimExportWidget(QtWidgets.QWidget):
 
         # Initialize the UI state based on the checkbox's initial value
         self.toggle_export_clips(self.checkbox_export_options.checkState())
-        
+
+    def load_projects_data(self):
+        json_path = os.path.join(cmds.internalVar(userAppDir=True), 'scripts', 'OWL_Anim_ToolKit', 'project_data', 'project_character_data.json')
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+        return data['projects_data']        
+    
+
     def create_operation_buttons(self):
         self.operation_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addLayout(self.operation_layout)
 
-        self.create_buttons('EXPORT THIS ANIMATION', lambda: exporter_logic.export_current(self), 'Export currently opened animation.', self.operation_layout, is_default=True, size=(490, 40))
+        self.create_buttons(
+            'EXPORT THIS ANIMATION',
+            self.export_current_with_creature_check,
+            'Export currently opened animation.',
+            self.operation_layout,
+            is_default=True,
+            size=(490, 40)
+        )
         self.create_buttons('BATCH ANIMATION EXPORT', self.export_batch, 'Export many animations.', self.operation_layout, is_default=True, size=(490, 40))
 
-        self.create_buttons('EXPORT CREATURE RIG TO PROJECT', self.export_batch, 'Export creature rig to project.', self.operation_layout, is_default=True, size=(490, 40))
+        #self.create_buttons('EXPORT CREATURE ANIMATION', self.export_creature_animation, 'Export creature animation.', self.operation_layout, is_default=True, size=(490, 40))
 
     def check_scene_create(self):
         self.check_scene_create_layout = QtWidgets.QVBoxLayout()
@@ -201,31 +248,26 @@ class AnimExportWidget(QtWidgets.QWidget):
 
         return start_frame, end_frame
 
-
     def set_project_combobox(self):
-        
-        preset_path = os.path.join(cmds.internalVar(userAppDir=True), 'scripts', 'OWL_Anim_ToolKit', 'project_data')
         self.combobox_project = QtWidgets.QComboBox()
-
-        files = [file.split('.')[0] for file in os.listdir(preset_path) if file.endswith(".fbxexportpreset")]
-
-        for file in files:
-            self.combobox_project.addItem(file)
-
+        self.combobox_project.addItems(self.projects_data.keys())
         self.combobox_project.setCurrentIndex(0)
-        self.set_project_layout.addWidget(self.combobox_project)
-        self.set_project_layout.setStretchFactor(self.combobox_project, 1)
+        self.combobox_project.currentIndexChanged.connect(self.update_characters_based_on_project)
+        self.set_char_layout.addWidget(self.combobox_project)
+        self.set_char_layout.setStretchFactor(self.combobox_project, 1)
 
     def set_char_type_combobox(self):
         self.combobox_race = QtWidgets.QComboBox()
-        character_types = ["HUMAN", "ELDAR", "SPACEMARINE", "KROOT", "OGRYN", "CREATURE"]
-
-        for char_type in character_types:
-            self.combobox_race.addItem(char_type)
-
-        self.combobox_race.setCurrentIndex(0)
         self.set_char_layout.addWidget(self.combobox_race)
         self.set_char_layout.setStretchFactor(self.combobox_race, 1)
+        self.update_characters_based_on_project()  # инициализировать расу по умолчанию
+
+    def update_characters_based_on_project(self):
+        selected_project = self.combobox_project.currentText()
+        self.combobox_race.clear()
+        races = self.projects_data.get(selected_project, [])
+        self.combobox_race.addItems([race.capitalize() for race in races])
+
 
     def btn_set_path_clicked(self):
         self.folder_path = cmds.fileDialog2(dialogStyle=2, fileMode=3)
@@ -235,99 +277,141 @@ class AnimExportWidget(QtWidgets.QWidget):
         else:
             print("No folder selected.")
 
-    def export_current(self):
-        pass
 
     def export_batch(self):
-        pass
-
-    def export_creature_rig(self):
-        pass
-
-    '''
-    def export_current(self):
-        print("EXPORTING CURRENT FILE")
-        char_type = self.combobox_race.currentText()
-        supported_char_types = {"HUMAN", "ELDAR", "SPACEMARINE", "KROOT", "OGRYN"}
-
-        if char_type in supported_char_types:
-            if self.rbtnA.isChecked():
-                if self.checkbox_export_options.isChecked():
-                    clips = self.create_frame_range_comboboxes()
-                    num_clips = len(clips)
-                    for clip_index in range(num_clips):
-                        self.export_animation_process(clip_index)
-                else:
-                    start_frame = cmds.playbackOptions(q=True, minTime=True)
-                    end_frame = cmds.playbackOptions(q=True, maxTime=True)
-                    name, folder_path = owl_export_anim_common.file_save_to_default_location()
-                    self.export_animation(start_frame, end_frame)
-            elif self.rbtnB.isChecked():
-                if self.checkbox_export_options.isChecked():
-                    clips = self.create_frame_range_comboboxes()
-                    num_clips = len(clips)
-                    for clip_index in range(num_clips):
-                        self.export_animation_process(clip_index, folder_path=self.save_name_field.text())
-                else:
-                    start_frame = cmds.playbackOptions(q=True, minTime=True)
-                    end_frame = cmds.playbackOptions(q=True, maxTime=True)
-                    self.export_animation(start_frame, end_frame, folder_path=self.save_name_field.text())
-
-    def export_batch(self):
-        print("EXPORTING BATCH FILE")
-
-    def set_range(self, index, start_field, end_field):
-        try:
-            if not start_field.text() or not end_field.text():
-                raise ValueError("Start and End frames cannot be empty.")
-            
-            start_frame = int(start_field.text())
-            end_frame = int(end_field.text())
-
-            if start_frame >= end_frame:
-                raise ValueError("Start frame must be less than end frame.")
-
-            print(f"Clip {index + 1}: Start Frame {start_frame}, End Frame {end_frame} range successfully set.")
-        except ValueError as e:
-            print(f"Input Error: {str(e)}")
-    def export_animation_process(self, clip_index):
-        owl_export_anim_common.import_reference()
-        owl_export_anim_common.remove_namespaces()
-        start_frame, end_frame = self.get_frame_range_values(clip_index)
-        name, folder_path = owl_export_anim_common.file_save_to_default_location()
-
-        if start_frame is None or end_frame is None:
-            print("Error: Invalid start or end frame values.")
+        folder = cmds.fileDialog2(fileMode=3, dialogStyle=2, caption="Выбери папку с .ma файлами")
+        if not folder:
             return
 
-        owl_anim_bake_ch_wh2.ch_anim_bake()
-        clip_file_name = f"{folder_path}/{name}_Clip{clip_index + 1}.fbx"
+        folder_path = folder[0]
+        ma_files = [f for f in os.listdir(folder_path) if f.endswith(".ma")]
+
+        if not ma_files:
+            QtWidgets.QMessageBox.information(self, "Нет файлов", "В выбранной папке нет .ma файлов.")
+            return
+
+        total = len(ma_files)
+        for i, file_name in enumerate(ma_files):
+            file_path = os.path.join(folder_path, file_name)
+            try:
+                if self.update_progress:
+                    self.update_progress(int((i / total) * 100))
+
+                print(f"[{i+1}/{total}] Обрабатывается: {file_name}")
+                cmds.file(file_path, open=True, force=True)
+
+                # определяем, Creature ли это
+                selected_race = self.combobox_race.currentText().strip().lower()
+                if selected_race == "creature":
+                    creature_anim_export.prep_for_export(
+                        logger=self.logger,
+                        update_progress=self.update_progress
+                    )
+                else:
+                    exporter_logic.export_current(
+                        self,
+                        logger=self.logger,
+                        update_progress=self.update_progress
+                    )
+
+            except Exception as e:
+                print(f"❌ Ошибка при обработке {file_name}: {e}")
+                continue
+
+        if self.update_progress:
+            self.update_progress(100)
+
+        QtWidgets.QMessageBox.information(self, "Готово", f"✅ Успешно экспортировано: {total} файлов")
+
+
+    def export_creature_animation(self):
+        creature_anim_export.prep_for_export(logger=self.logger, update_progress=self.update_progress)
+
+    def export_current_with_creature_check(self):
+        selected_race = self.combobox_race.currentText().strip().lower()
+        if selected_race == "creature":
+            creature_anim_export.prep_for_export(
+                logger=self.logger,
+                update_progress=self.update_progress
+            )
+        else:
+            exporter_logic.export_current(
+                self,
+                logger=self.logger,
+                update_progress=self.update_progress
+            )
+    def handle_convert_current_animation(self):
+        race = self.race_field.currentText()
+        gender = self.gender_field.currentText()
+        source_proj = self.source_project_combobox.currentText()
+        target_proj = self.target_project_combobox.currentText()
+        self.logger.log("🔄 Запущена конвертация текущей анимации...")
+        if not (source_proj and target_proj and race and gender):
+            QtWidgets.QMessageBox.warning(self, "Error", "Please select all required fields.")
+            return
+
         try:
-            start_frame, end_frame = self.get_frame_range_values(clip_index)
-            if start_frame is not None and end_frame is not None:
-                takename = f"clip{clip_index+1}"
-                cmds.FBXExportSplitAnimationIntoTakes("-v", takename, start_frame, end_frame)
-                cmds.FBXExport("-f", clip_file_name, "-s")
-                print(f"Clip {clip_index+1} exported to {clip_file_name}")
-            else:
-                print("Error: Start and end frame fields are empty")
+            self.update_progress(5)
+            json_path = anim_utils.prepare_anim_data_for_transfer(
+                source_project=source_proj,
+                target_project=target_proj,
+                race=race,
+                gender=gender
+            )
+            self.update_progress(60)
+
+            anim_utils.load_template_and_apply_animation(source_proj, target_proj, race, gender)
+            self.update_progress(95)
+
+            QtWidgets.QMessageBox.information(self, "Conversion Complete", "Animation converted and applied.")
+            self.update_progress(100)
         except Exception as e:
-            print(f"Error getting frame range values: {e}")
+            self.update_progress(0)
+            QtWidgets.QMessageBox.critical(self, "Conversion Error", str(e))
 
-    def export_animation(self, start_frame, end_frame):
-        owl_export_anim_common.import_reference()
-        owl_export_anim_common.remove_namespaces()
-        owl_anim_bake_ch_wh2.ch_anim_bake()
-        name, folder_path = owl_export_anim_common.file_save_to_default_location()
-        file_name = f"{folder_path}/{name}.fbx"
-        cmds.select('Position', hi=True)
-        #mel.eval(f'FBXExport -f "{file_name}" -s')
-        cmds.file(file_name, force=True, type='FBX export', options='v=0', exportSelected=True)
-        print(f"File exported to {file_name}")
+        self.save_user_settings()
+        self.logger.log("✅ Конвертация завершена.")
 
-    
-    '''
+    def handle_convert_batch_maya(self):
+        folder = cmds.fileDialog2(fileMode=3, dialogStyle=2, caption="Выбери папку с .ma файлами")
+        if not folder:
+            return
 
+        folder_path = folder[0]
+        ma_files = [f for f in os.listdir(folder_path) if f.endswith(".ma")]
 
+        if not ma_files:
+            QtWidgets.QMessageBox.information(self, "Нет файлов", "В выбранной папке нет .ma файлов.")
+            return
 
+        race = self.race_field.currentText()
+        gender = self.gender_field.currentText()
+        source_proj = self.source_project_combobox.currentText()
+        target_proj = self.target_project_combobox.currentText()
 
+        if not (source_proj and target_proj and race and gender):
+            QtWidgets.QMessageBox.warning(self, "Error", "Please select all required fields.")
+            return
+
+        total = len(ma_files)
+        for i, file_name in enumerate(ma_files):
+            file_path = os.path.join(folder_path, file_name)
+            try:
+                self.update_progress(int((i / total) * 100))
+                print(f"[{i+1}/{total}] Обрабатываем: {file_name}")
+                cmds.file(file_path, open=True, force=True)
+
+                # 🔁 Вызов той же логики, что и при одиночной конверсии
+                anim_utils.prepare_anim_data_for_transfer(
+                    source_project=source_proj,
+                    target_project=target_proj,
+                    race=race,
+                    gender=gender
+                )
+                anim_utils.load_template_and_apply_animation(source_proj, target_proj, race, gender)
+            except Exception as e:
+                print(f"❌ Ошибка при обработке {file_name}: {e}")
+                continue
+
+        self.update_progress(100)
+        QtWidgets.QMessageBox.information(self, "Batch Complete", f"✅ Обработано файлов: {total}")

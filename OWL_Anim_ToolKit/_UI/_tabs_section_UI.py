@@ -1,23 +1,24 @@
 from PySide2 import QtWidgets
 import importlib
-
-# Импортируем модули для перезагрузки
-from _UI._tabsUI import _exporter_tab, _converter_tab, _clearUnwantedAnimKeys_tab
+from _UI._tabsUI import _clear_unwanted_anim_keys_tab, _exporter_tab, _converter_tab
+from _logic.logging_process import UILogger
 
 # Перезагружаем их
 importlib.reload(_exporter_tab)
 importlib.reload(_converter_tab)
-importlib.reload(_clearUnwantedAnimKeys_tab)
+importlib.reload(_clear_unwanted_anim_keys_tab)
 
 # Импортируем виджеты уже после reload
 from _UI._tabsUI._exporter_tab import AnimExportWidget
 from _UI._tabsUI._converter_tab import AnimationConverterWidget
-from _UI._tabsUI._clearUnwantedAnimKeys_tab import CleanUnwantedAnimWidget
+from _UI._tabsUI._clear_unwanted_anim_keys_tab import CleanUnwantedAnimWidget
 
-def create_tabs_section(self):
+def create_tabs_section(self, logger_widget=None):
     # Создание вкладок
     tabs = QtWidgets.QTabWidget(self)
 
+    logger = UILogger(widget=logger_widget)
+    
     # Вкладка для экспорта анимации
     export_tab = QtWidgets.QWidget()
     tabs.addTab(export_tab, "Export Animation")
@@ -36,12 +37,12 @@ def create_tabs_section(self):
     clear_anim_layout = QtWidgets.QVBoxLayout(clean_anim_tab)
 
     # Создание UI экспортера анимации и добавление его в лэйаут
-    anim_export_widget = AnimExportWidget(self.project_combo)
+    anim_export_widget = AnimExportWidget(logger_widget=logger_widget, update_progress=self.update_progress)
     export_layout.addWidget(anim_export_widget)  # Добавляем его в лэйаут вкладки
 
     anim_convert_widget = AnimationConverterWidget(parent=convert_tab,
                                                     update_progress=self.update_progress,
-                                                    logger_widget=self.logger_widget
+                                                    logger_widget=logger_widget
                                                 )
     convert_layout.addWidget(anim_convert_widget)
 

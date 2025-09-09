@@ -3,29 +3,24 @@ import importlib
 import OWL_Anim_ToolKit._logic.bake_anim_utils as bake_anim_utils
 import OWL_Anim_ToolKit._logic.clear_unwanted_anim_logic as CleanAnimLogic
 import OWL_Anim_ToolKit._logic.file_handling_utils as file_handling_utils
-
+import _logic.logging_process as logging_process
 
 importlib.reload(bake_anim_utils)
 importlib.reload(CleanAnimLogic)
 importlib.reload(file_handling_utils)
+importlib.reload(logging_process)
 
 
-_logger = None  # приватная переменная
 
-def set_logger(external_logger):
-    global _logger
-    _logger = external_logger
+from _logic.logging_process import UILogger
 
-def log(msg):
-    if _logger and _logger != log:
-        _logger(msg)
-    else:
-        print(msg)
 
-file_handling_utils.set_logger(log)
-bake_anim_utils.set_logger(log)
 
-def scale_anim():
+def scale_anim(logger=None):
+
+    if logger is None:
+        logger = UILogger()
+
     bake_anim_utils.anim_channels_cleanup()
     
     start_frame = cmds.playbackOptions(q=True, min=True)
@@ -53,7 +48,7 @@ def scale_anim():
         if cmds.nodeType(child) == "transform" and cmds.nodeType(cmds.listRelatives(child, shapes=True) or []) != "joint":
             cmds.delete(child)
 
-    log("Трансформ ноды под pelvis удалены.")
+    logger.log("Трансформ ноды под pelvis удалены.")
     
     jntList = cmds.listRelatives(pelvis_joint, type='joint', allDescendents=True) or []
     
@@ -78,7 +73,7 @@ def scale_anim():
     top_locators = bake_anim_utils.get_top_level_locators()
 
     for top_locator in top_locators:
-        log(top_locator)
+        logger.log(top_locator)
         for axis in 'XYZ':
             cmds.setAttr(f'{top_locator}.scale{axis}', 100)
         
@@ -127,21 +122,25 @@ def scale_anim():
     for obj in to_del:
         if cmds.objExists(obj):
             cmds.delete(obj)
-            log(f"Удален: {obj}")   
+            logger.log(f"Удален: {obj}")   
         else:
-            log(f"В сцене нет объекта {obj} для удаления.")
+            logger.log(f"В сцене нет объекта {obj} для удаления.")
             continue
-    log("Процесс увеличения скелета - завершен.")
+    logger.log("Процесс увеличения скелета - завершен.")
 
 
-def scale_trans_channels():
+def scale_trans_channels(logger=None):
+
+    if logger is None:
+        logger = UILogger()
+
     jnts = cmds.listRelatives('Pelvis', type='joint', allDescendents=True) or []
-    log(jnts)
+    logger.log(jnts)
     #jnts.append('Pelvis')  # Include the
     
     for j in jnts:
         keyframes = cmds.keyframe(j, attribute=['translateX', 'translateY', 'translateZ'], query=True)
-        log(j, keyframes)
+        logger.log(j, keyframes)
         if not keyframes:
             continue
     
@@ -160,30 +159,38 @@ def scale_trans_channels():
             for attr, val in zip(attrs, new_trans):
                 cmds.keyframe(j, time=(start_frame, end_frame), attribute=attr, valueChange=val)
         
-        log(f"🔧 Масштабирована трансляция для кости: {j}")
+        logger.log(f"🔧 Масштабирована трансляция для кости: {j}")
 
 
-def delete_adj_and_w_joints():
+def delete_adj_and_w_joints(logger=None):
+
+    if logger is None:
+        logger = UILogger()
+
     all_joints = cmds.ls(type="joint")
 
     # Фильтруем кости с "_ADJ" или "_w_" в названии
     joints_to_delete = [jnt for jnt in all_joints if "_ADJ" in jnt or "_w_" in jnt]
 
     if not joints_to_delete:
-        log("✅ Нет костей с '_ADJ' или '_w_' для удаления.")
+        logger.log("✅ Нет костей с '_ADJ' или '_w_' для удаления.")
         return
 
     # Удаляем кости
     cmds.delete(joints_to_delete)
 
-    log(f"🗑 Удалено {len(joints_to_delete)} костей с '_ADJ' или '_w_' в названии.")
+    logger.log(f"🗑 Удалено {len(joints_to_delete)} костей с '_ADJ' или '_w_' в названии.")
 
 
-def scale_translate_keys_except_first(objs=None, scale=100):
+def scale_translate_keys_except_first(objs=None, scale=100, logger=None):
     """
     Умножает все translate-ключи (translateX, Y, Z), кроме первого, на указанный scale для заданных объектов.
     Если objs не задан, берёт выделенные объекты.
     """
+
+    if logger is None:
+        logger = UILogger()
+
     if objs is None:
         objs = cmds.ls(selection=True)
     for obj in objs:
@@ -201,7 +208,7 @@ def scale_translate_keys_except_first(objs=None, scale=100):
                 val = cmds.keyframe(obj, attribute=attr, query=True, eval=True, time=(t,))[0]
                 # Устанавливаем новое значение
                 cmds.setKeyframe(obj, attribute=attr, time=(t,), value=val * scale)
-            log(f"Обработан {obj}.{attr}: ключи кроме первого умножены на {scale}")
+            logger.log(f"Обработан {obj}.{attr}: ключи кроме первого умножены на {scale}")
 
 def run_scale():
     scale_anim()

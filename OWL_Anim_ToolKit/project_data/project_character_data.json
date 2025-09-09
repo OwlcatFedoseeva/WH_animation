@@ -1,0 +1,6 @@
+{
+  "projects_data": {
+    "WH1": ["human", "eldar", "spacemarine", "creature"],
+    "WH2": ["human", "eldar", "spacemarine", "kroot", "ogryn", "creature"]
+  }
+}

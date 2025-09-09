@@ -9,8 +9,8 @@ class LoggerWidget(QtWidgets.QTextEdit):
         self.setReadOnly(True)
         self.setMinimumHeight(100)
 
-    def append_log(self, message):
-        self.append(message)
+    def append_log(self, html_message):
+        self.append(html_message)
         QtWidgets.QApplication.processEvents()
 
 def create_logger_section(parent=None):
