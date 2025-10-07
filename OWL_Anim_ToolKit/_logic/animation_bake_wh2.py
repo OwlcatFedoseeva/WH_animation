@@ -103,14 +103,19 @@ def smart_bake(start_frame, end_frame, logger=None):
             at=["tx", "ty", "tz", "rx", "ry", "rz"]
         )
 
-def run_wh2_export_pipeline(race: str, logger: UILogger, cleanup=False):
+def run_wh2_export_pipeline(race: str, logger: UILogger = None, segments=None, cleanup: bool = False):
     """
-    Выполняет экспорт пайплайна для WH2-проекта.
+    Экспорт пайплайна WH2.
+    - Если segments is None  -> Метод A: один FBX = один клип (один take) по таймлайну.
+    - Если segments = [(name, start, end), ...] -> Метод B: несколько FBX, по одному на каждый отрезок.
     """
+    logger = logger or UILogger()
     logger.log(f"📌 Запуск WH2 пайплайна для расы {race}")
+    ROOT_NAME = "Position"
 
+    # ---- Подготовка сцены (как у тебя было) ----
     start_frame = int(cmds.playbackOptions(q=True, min=True))
-    end_frame = int(cmds.playbackOptions(q=True, max=True))
+    end_frame   = int(cmds.playbackOptions(q=True, max=True))
 
     file_utils.imprtRef()
     file_utils.remove_namespaces()
@@ -118,11 +123,53 @@ def run_wh2_export_pipeline(race: str, logger: UILogger, cleanup=False):
     smart_bake(start_frame, end_frame, logger=logger)
 
     export_file_path = file_utils.generate_export_file_path(subfolder="Export", extension=".fbx")
- 
+
+    utils.keep_only_parent_group("Position")
 
     if cleanup:
         wh2_cleanup(logger=logger)
 
-    cmds.select("Position", hi=True)
-    cmds.file(export_file_path , force=True, options="v=0", type="FBX export", exportSelected=True)
-    logger.log(f"✅ Экспорт завершён: {export_file_path }")
+    if cmds.objExists("Group"):
+        cmds.delete("Group")
+        logger.log("Deleted 'Group' object.")
+
+    # ---- Имя сцены/клипа по умолчанию ----
+    scene_name = cmds.file(q=True, sceneName=True, shortName=True) or "Scene"
+    scene_base, _ = os.path.splitext(scene_name)
+
+    # ===== Метод A: один FBX = один клип (если segments не передан) =====
+    if not segments:
+        s = int(cmds.playbackOptions(q=True, min=True))
+        e = int(cmds.playbackOptions(q=True, max=True))
+
+        # ВАЖНО: используем атомарный экспорт одного клипа
+        utils.export_single_clip_fbx(
+            export_path=export_file_path,
+            clip_name=scene_base,
+            start=s,
+            end=e,
+            root_joint=ROOT_NAME,
+            logger=logger
+        )
+        logger.log(f"✅ Экспорт завершён (A): {export_file_path}")
+        return
+
+    # ===== Метод B: несколько FBX, по одному на каждый сегмент =====
+    base, ext = os.path.splitext(export_file_path)
+    total = len(segments)
+    for idx, (nm, s, e) in enumerate(segments, 1):
+        out_path = f"{base}@{nm}{ext}"
+
+        # защита от перепутанных границ
+        if e < s:
+            s, e = e, s
+
+        utils.export_single_clip_fbx(
+            export_path=out_path,
+            clip_name=nm,
+            start=int(s),
+            end=int(e),
+            root_joint=ROOT_NAME,
+            logger=logger
+        )
+        logger.log(f"✅ [{idx}/{total}] Экспортирован клип: {nm} → {out_path}")

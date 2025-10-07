@@ -267,7 +267,7 @@ def convert_process(race, gender, source_project, target_project, logger=None):
 
     export_dir = os.path.normpath(utils.ensure_export_folder(scene_path, logger))
     fbx_path = os.path.join(export_dir, f"{scene_name}.fbx")
-    root_joint = 'Position'
+    root_joint = 'Position' 
     cmds.playbackOptions(min=start, max=end)
     ensure_fps_30(logger)
     utils.export_fbx_for_unity(fbx_path, root_joint, logger)

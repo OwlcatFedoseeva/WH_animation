@@ -27,7 +27,7 @@ clear_temp_files(temp_dir)
 class OWLAnimKitUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('OWL Animation Kit v1.7')
+        self.setWindowTitle('OWL Animation Kit v1.8.2')
         self.setObjectName("OWLAnimationKitID")
         self.setMinimumSize(500, 860)
         self.setMaximumSize(500, 860)

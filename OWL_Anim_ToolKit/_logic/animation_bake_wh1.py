@@ -90,36 +90,81 @@ def bake_wh1_animation(race=None, json_jnt_list=None, json_jnt_list_path=None, l
     bake_anim_utils.cleanUp(race=race, logger=logger)
     export_wh1_to_fbx(logger)
 
-def export_wh1_to_fbx(logger=None):
-    '''
-    This function for export of Human| Eldar| SpaceMarine characters as FBX file into a designated location in UI.
-    '''
-    if logger is None:
-        logger = UILogger()
+def export_wh1_to_fbx(logger=None, segments=None):
+    """
+    Экспорт для WH1.
+    - segments is None  -> Метод A: один FBX = один клип по таймлайну.
+    - segments = [(name, start, end), ...] -> Метод B: несколько FBX (по клипу на отрезок).
 
+    Примечание: предполагается, что бейк уже выполнен ранее по пайплайну.
+    """
+    logger = logger or UILogger()
+
+    # Целевой путь (база имени файла)
     export_file_path = file_utils.generate_export_file_path(subfolder="Export", extension=".fbx")
+
+    # Выбираем рут узел
     objects_to_check = ['ParentForExportDelete', 'Root_M', 'Position']
     root_joint = None
     for obj in objects_to_check:
         if cmds.objExists(obj):
-            cmds.select(obj)
-            logger.log(f"🔄 Root joint selected: {obj}", color="blue")
             root_joint = obj
+            logger.log(f"🔄 Root joint selected: {obj}", color="blue")
             break
 
     if not root_joint:
         logger.log("❌ Root joint not found. Экспорт FBX отменён.", color="red")
         return
 
+    # Немного гигиены сцены
     file_utils.delete_empty_display_layers(logger=logger)
-    utils.export_fbx_for_unity(export_file_path, root_joint, logger=logger)
-    logger.log("FBX file exported to: {}".format(export_file_path))
+
+    # Имя клипа по умолчанию = имя сцены
+    scene_name = cmds.file(q=True, sceneName=True, shortName=True) or "Scene"
+    scene_base, _ = os.path.splitext(scene_name)
+
+    if not segments:
+        # ===== Метод A: один клип по таймлайну =====
+        s = int(cmds.playbackOptions(q=True, min=True))
+        e = int(cmds.playbackOptions(q=True, max=True))
+        utils.export_single_clip_fbx(
+            export_path=export_file_path,
+            clip_name=scene_base,
+            start=s,
+            end=e,
+            root_joint=root_joint,
+            logger=logger
+        )
+        logger.log(f"✅ Экспорт завершён (A): {export_file_path}")
+        return
+
+    # ===== Метод B: несколько клипов =====
+    base, ext = os.path.splitext(export_file_path)
+    total = len(segments)
+    for idx, (nm, s, e) in enumerate(segments, 1):
+        # нормализуем границы
+        if e < s:
+            s, e = e, s
+
+        out_path = f"{base}@{nm}{ext}"
+        utils.export_single_clip_fbx(
+            export_path=out_path,
+            clip_name=nm,
+            start=int(s),
+            end=int(e),
+            root_joint=root_joint,
+            logger=logger
+        )
+        logger.log(f"✅ [{idx}/{total}] Экспортирован клип: {nm} → {out_path}")
 
 
-
-def run_wh1_export_pipeline(race: str, joint_list=None, joint_list_path=None, logger=None):
+def run_wh1_export_pipeline(race: str, joint_list=None, joint_list_path=None, logger=None, segments=None, cleanup: bool = False):
+    """
+    Экспорт пайплайна WH1.
+    - Если segments is None -> Метод A: один FBX = один клип (по таймлайну).
+    - Если segments = [(name, start, end), ...] -> Метод B: несколько FBX, каждый отрезок = отдельный файл.
+    """
     if joint_list is None and joint_list_path is None:
-
         RACE_JSON_MAP = {
             "Human": "bake_transl_jnts_list_human.json",
             "Eldar": "bake_transl_jnts_list_human.json",
@@ -130,10 +175,67 @@ def run_wh1_export_pipeline(race: str, joint_list=None, joint_list_path=None, lo
             raise ValueError(f"Unknown race '{race}'")
         joint_list_path = os.path.join(PROJECT_DATA_DIR, filename)
 
-    if logger:
-        logger.log("🔄 Baking animation from Pelvis...", color="blue")
+    logger = logger or UILogger()
+    logger.log("🔄 Baking animation from Pelvis...", color="blue")
 
+    # ---- Подготовка сцены ----
     file_utils.imprtRef()
     file_utils.remove_namespaces()
 
-    bake_wh1_animation(race=race, json_jnt_list=joint_list, json_jnt_list_path=joint_list_path, logger=logger)
+    bake_wh1_animation(
+        race=race,
+        json_jnt_list=joint_list,
+        json_jnt_list_path=joint_list_path,
+        logger=logger
+    )
+
+    utils.keep_only_parent_group("ParentForExportDelete")
+
+    # ---- Путь для экспорта ----
+    export_file_path = file_utils.generate_export_file_path(subfolder="Export", extension=".fbx")
+
+    # ---- Определяем root ----
+    objects_to_check = ['ParentForExportDelete', 'Root_M', 'Position']
+    root_joint = None
+    for obj in objects_to_check:
+        if cmds.objExists(obj):
+            root_joint = obj
+            break
+    if not root_joint:
+        logger.log("❌ Root joint not found. Экспорт FBX отменён.", color="red")
+        return
+
+    # ---- Экспорт ----
+    scene_name = cmds.file(q=True, sceneName=True, shortName=True) or "Scene"
+    scene_base, _ = os.path.splitext(scene_name)
+
+    if not segments:
+        # ===== Метод A =====
+        s = int(cmds.playbackOptions(q=True, min=True))
+        e = int(cmds.playbackOptions(q=True, max=True))
+        utils.export_single_clip_fbx(
+            export_path=export_file_path,
+            clip_name=scene_base,
+            start=s,
+            end=e,
+            root_joint=root_joint,
+            logger=logger
+        )
+        logger.log(f"✅ Экспорт завершён (A): {export_file_path}")
+    else:
+        # ===== Метод B =====
+        base, ext = os.path.splitext(export_file_path)
+        total = len(segments)
+        for idx, (nm, s, e) in enumerate(segments, 1):
+            out_path = f"{base}@{nm}{ext}"
+            if e < s:
+                s, e = e, s
+            utils.export_single_clip_fbx(
+                export_path=out_path,
+                clip_name=nm,
+                start=int(s),
+                end=int(e),
+                root_joint=root_joint,
+                logger=logger
+            )
+            logger.log(f"✅ [{idx}/{total}] Экспортирован клип: {nm} → {out_path}")

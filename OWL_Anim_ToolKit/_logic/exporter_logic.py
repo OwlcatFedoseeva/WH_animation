@@ -6,29 +6,55 @@ from .bake_anim_utils import bake_animation_for_project
 from _logic.logging_process import UILogger
 import OWL_Anim_ToolKit._logic.export_dispatcher as export_dispatcher
 
-def export_current(ui, logger, update_progress=None):
+def export_current(widget, logger=None, update_progress=None):
     """
-    Запускает экспорт анимации на основе выбранного проекта и расы.
-    Получает значения из UI и передаёт в маршрутизатор экспорта.
+    Точка входа из UI.
+    - Читает проект/расу из комбобоксов.
+    - Смотрит чекбокс "Split into clips" и собирает сегменты из UI (если есть).
+    - Пробрасывает всё в диспетчер.
     """
-    if logger is None:
-        logger = UILogger()
-    try:
-        # Получаем выбранные проект и расу из комбобоксов
-        project = ui.combobox_project.currentText()
-        race = ui.combobox_race.currentText().lower()
+    logger = logger or UILogger(widget=None)
+    if update_progress:
+        update_progress(5)
 
-        # Импорт диспетчера экспорта и запуск соответствующего пайплайна
-        if update_progress:
-            update_progress(0)
-        export_dispatcher.dispatch_export(project=project, race=race, logger=logger)
-        
+    # 1) Считываем проект и расу из UI
+    try:
+        project = widget.combobox_project.currentText().strip()
+        race    = widget.combobox_race.currentText().strip()
+    except Exception:
+        raise RuntimeError("[Exporter] Не удалось считать проект/расу из UI.")
+
+    # 2) Собираем сегменты, если включён split
+    segments = None
+    try:
+        split_enabled = getattr(widget, "checkbox_export_options", None) and widget.checkbox_export_options.isChecked()
+        if split_enabled:
+            segments = widget.get_all_clips()  # [(name, start, end), ...]
+            # Если включён split, но список пуст/некорректен — падаем обратно на метод A
+            if not segments:
+                logger.log("ℹ️ Split включён, но клипы не заданы — экспорт как один клип (метод A).", color="yellow")
+                segments = None
+    except Exception as e:
+        logger.log(f"⚠️ Не удалось собрать клипы из UI: {e}. Выполняю экспорт как один клип.", color="orange")
+        segments = None
+
+    if update_progress:
+        update_progress(10)
+
+    # 3) Вызываем диспетчер (он уже умеет принимать segments)
+    try:
+        export_dispatcher.dispatch_export(
+            project=project,
+            race=race,
+            logger=logger,
+            segments=segments,   # None -> метод A; список -> метод B
+            cleanup=False        # при необходимости добавь параметр из UI
+        )
         if update_progress:
             update_progress(100)
-
-    except AttributeError as e:
-        raise RuntimeError(f"[Exporter] ❌ Ошибка доступа к элементам UI: {e}")
     except Exception as e:
+        if update_progress:
+            update_progress(0)
         raise RuntimeError(f"[Exporter] ❌ Не удалось запустить экспорт: {e}")
 
 

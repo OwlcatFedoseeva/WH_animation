@@ -7,12 +7,18 @@ import maya.cmds as cmds
 import importlib
 import OWL_Anim_ToolKit._logic.bake_correct_export_anim as anim_utils
 import OWL_Anim_ToolKit._logic.animation_convertion as anim_utils_test
+import OWL_Anim_ToolKit._logic.animation_creature_convert as creature_anim_convert
+import OWL_Anim_ToolKit._logic.utils as utils
+import OWL_Anim_ToolKit._logic.file_handling_utils as file_utils
 import _logic.logging_process as logging_process
 
 
 importlib.reload(anim_utils)
 importlib.reload(anim_utils_test)
 importlib.reload(logging_process)
+importlib.reload(creature_anim_convert)
+importlib.reload(utils)
+importlib.reload(file_utils)
 from _logic.logging_process import UILogger
 
 class AnimationConverterWidget(QtWidgets.QWidget):
@@ -83,6 +89,15 @@ class AnimationConverterWidget(QtWidgets.QWidget):
         self.convert_batch_anim_btn.setFixedSize(490, 40)
         self.convert_batch_anim_btn.clicked.connect(self.handle_convert_batch_fbx)
         btn_layout.addWidget(self.convert_batch_anim_btn)
+
+        btn_layout.addWidget(self._divider())
+
+
+
+        self.convert_creatre_anim_btn = QtWidgets.QPushButton("CONVERT CREATURE FBX FILE")
+        self.convert_creatre_anim_btn.setFixedSize(490, 40)
+        self.convert_creatre_anim_btn.clicked.connect(self.handle_convert_creature_anim_fbx)
+        btn_layout.addWidget(self.convert_creatre_anim_btn)
 
         btn_layout.addWidget(self._divider())
 
@@ -211,8 +226,6 @@ class AnimationConverterWidget(QtWidgets.QWidget):
             if self.logger:
                 self.logger.log(f"❌ Ошибка при конвертации FBX: {e}", color="red")
 
-
-
     def handle_convert_batch_fbx(self):
         folder = cmds.fileDialog2(fileMode=3, dialogStyle=2, caption="Выбери папку с .fbx файлами")
         if not folder:
@@ -268,6 +281,48 @@ class AnimationConverterWidget(QtWidgets.QWidget):
 
         self.update_progress(100)
         cmds.confirmDialog(title='Успех', message='Конвертация завершена.', button=['OK'])
+
+    def handle_convert_creature_anim_fbx(self):
+
+        ROOT_NAME = "Position"
+
+
+        if self.logger:
+            self.logger.log("🔄 Запущена конвертация текущей анимации...", color="blue")
+
+        source_proj = self.source_project_combobox.currentText()
+        target_proj = self.target_project_combobox.currentText()
+        try:
+            if target_proj == 'WHII':
+                self.update_progress(5)
+                creature_anim_convert.scale_translate_keys(100)
+                export_file_path = file_utils.generate_export_file_path(subfolder="Export", extension=".fbx")
+                # ---- Имя сцены/клипа по умолчанию ----
+                scene_name = cmds.file(q=True, sceneName=True, shortName=True) or "Scene"
+                scene_base, _ = os.path.splitext(scene_name)
+
+                s = int(cmds.playbackOptions(q=True, min=True))
+                e = int(cmds.playbackOptions(q=True, max=True))
+
+                utils.export_single_clip_fbx(
+                    export_path=export_file_path,
+                    clip_name=scene_base,
+                    start=s,
+                    end=e,
+                    root_joint=ROOT_NAME
+                )
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            cmds.confirmDialog(title='Ошибка', message=f"Произошла ошибка: {e}", button=['OK'])
+
+            if self.logger:
+                self.logger.log(f"❌ Ошибка при конвертации FBX: {e}", color="red")
+
+        pass
+
+
 
 
     def save_user_settings(self):

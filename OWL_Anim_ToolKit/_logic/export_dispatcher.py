@@ -17,7 +17,7 @@ def get_joint_list_path(race: str) -> str:
     filename = f"bake_transl_jnts_list_{race.lower()}.json"
     return os.path.join(PROJECT_DATA_DIR, filename)
 
-def dispatch_export(project: str, race: str, logger):
+def dispatch_export(project: str, race: str, logger, segments=None, cleanup=False):
     """
     Главная функция маршрутизации экспорта по проекту и расе.
     """
@@ -31,13 +31,22 @@ def dispatch_export(project: str, race: str, logger):
 
     if project == "WH1":
         joint_list_path = get_joint_list_path(race)
-        wh1_export.run_wh1_export_pipeline(race=race, joint_list_path=joint_list_path, logger=logger)
-
+        wh1_export.run_wh1_export_pipeline(
+                race=race,
+                joint_list_path=joint_list_path,
+                logger=logger,
+                segments=segments,
+                cleanup=cleanup
+            )
 
     elif project == "WH2":
         # Заготовка — WH2 будет реализован по аналогии с WH1
-        wh2_export.run_wh2_export_pipeline(race=race, logger=logger)
-
+        wh2_export.run_wh2_export_pipeline(
+                    race=race,
+                    logger=logger,
+                    segments=segments,
+                    cleanup=cleanup
+                )
 
     else:
         raise ValueError(f"Проект '{project}' не поддерживается.")
